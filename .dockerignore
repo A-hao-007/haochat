@@ -1,0 +1,12 @@
+.git
+.idea
+.vscode
+**/target
+**/node_modules
+**/dist
+**/.DS_Store
+backups
+data
+*.log
+*.zip
+.env

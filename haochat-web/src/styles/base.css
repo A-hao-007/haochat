@@ -1,0 +1,294 @@
+/* ========================================
+   HaoChat 设计系统 - CSS 变量 / Design Tokens
+   ======================================== */
+
+/* 暗黑主题（默认） */
+:root,
+[data-theme='dark'] {
+  --color-primary: #1d90f5;
+  --color-primary-hover: #2287e1;
+  --color-primary-light: rgba(29, 144, 245, 0.15);
+  --color-link: #5b9cf5;
+  --color-wechat: #2aae67;
+  --color-online: #22c55e;
+  --color-offline: #6b7280;
+  --color-away: #f59e0b;
+  --color-busy: #ef4444;
+  --color-white: #fff;
+  --color-gold: #f0c040;
+  --color-light-1: #bebebe;
+  --color-light-2: #dedfe0;
+  --color-light-3: #e9e9eb;
+  --color-light-4: #f5f5f5;
+
+  /* 字体颜色 */
+  --font-main: #fff;
+  --font-secondary: rgba(255, 255, 255, 0.85);
+  --font-base: #333;
+  --font-gray: #666;
+  --font-light: #999;
+  --font-light-1: #eee;
+  --font-pink: #fe2c55;
+  --font-placeholder: #a8abb2;
+
+  /* 背景色 */
+  --bg-app: #1a1a2e;
+  --bg-wrapper: #272a37;
+  --bg-secondary: #323644;
+  --bg-tertiary: #383c4b;
+  --bg-hover: #484d5f;
+  --bg-active: rgba(29, 144, 245, 0.12);
+  --bg-mask: rgba(0, 0, 0, 0.5);
+  --bg-glass: rgba(39, 42, 55, 0.85);
+  --bg-input: #2b2d31;
+  --bg-bubble-self: #1d90f5;
+  --bg-bubble-other: #323644;
+  --bg-card: #383c4b;
+
+  /* 边框 */
+  --border-color: #424656;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-pink: #b52c47;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 12px rgba(29, 144, 245, 0.3);
+
+  /* 圆角 */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* 过渡 */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.35s ease;
+
+  /* 尺寸 */
+  --sidebar-width: 64px;
+  --session-list-width: 280px;
+  --user-list-width: 220px;
+
+  /* 兼容旧变量 */
+  --background-indigo: #2c3e50;
+  --background-wrapper: var(--bg-wrapper);
+  --background-secondary: var(--bg-secondary);
+  --background-black-half: var(--bg-mask);
+  --background-dark: rgba(39, 42, 55, 0.4);
+  --background-mask: rgba(255, 255, 255, 0.2);
+  --background-1: #2b2d31;
+  --background-2: #383c4b;
+  --background-3: #424656;
+  --background-4: #efe2bb;
+  --hover-primary: var(--color-primary-hover);
+  --hover-bg-1: var(--bg-hover);
+  --hover-bg-2: rgba(0, 0, 0, 0.2);
+  --border-base: var(--border-color);
+}
+
+/* 明亮主题 */
+[data-theme='light'] {
+  --color-primary: #1d90f5;
+  --color-primary-hover: #1a7fd9;
+  --color-primary-light: rgba(29, 144, 245, 0.1);
+  --color-link: #1d90f5;
+  --color-wechat: #2aae67;
+  --color-online: #22c55e;
+  --color-offline: #9ca3af;
+  --color-away: #f59e0b;
+  --color-busy: #ef4444;
+  --color-white: #fff;
+  --color-gold: #d4a017;
+  --color-light-1: #999;
+  --color-light-2: #bbb;
+  --color-light-3: #ddd;
+  --color-light-4: #f0f0f0;
+
+  /* 字体颜色 */
+  --font-main: #1f2937;
+  --font-secondary: #4b5563;
+  --font-base: #333;
+  --font-gray: #6b7280;
+  --font-light: #9ca3af;
+  --font-light-1: #e5e7eb;
+  --font-pink: #fe2c55;
+  --font-placeholder: #9ca3af;
+
+  /* 背景色 */
+  --bg-app: #f0f2f5;
+  --bg-wrapper: #ffffff;
+  --bg-secondary: #f5f6f8;
+  --bg-tertiary: #e9ecef;
+  --bg-hover: #f0f2f5;
+  --bg-active: rgba(29, 144, 245, 0.1);
+  --bg-mask: rgba(0, 0, 0, 0.3);
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-input: #f0f2f5;
+  --bg-bubble-self: #1d90f5;
+  --bg-bubble-other: #ffffff;
+  --bg-card: #ffffff;
+
+  /* 边框 */
+  --border-color: #e5e7eb;
+  --border-light: rgba(0, 0, 0, 0.06);
+  --border-pink: #f8719d;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 12px rgba(29, 144, 245, 0.2);
+
+  /* 兼容旧变量 */
+  --background-indigo: #4f6d8a;
+  --background-wrapper: var(--bg-wrapper);
+  --background-secondary: var(--bg-secondary);
+  --background-black-half: var(--bg-mask);
+  --background-dark: rgba(0, 0, 0, 0.05);
+  --background-mask: rgba(0, 0, 0, 0.08);
+  --background-1: #f0f2f5;
+  --background-2: #e9ecef;
+  --background-3: #dee2e6;
+  --background-4: #fff8e1;
+  --hover-primary: var(--color-primary-hover);
+  --hover-bg-1: var(--bg-hover);
+  --hover-bg-2: rgba(0, 0, 0, 0.05);
+  --border-base: var(--border-color);
+}
+
+/* ========================================
+   全局重置 & 基础样式
+   ======================================== */
+
+*,
+*::before,
+*::after {
+  position: relative;
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+body {
+  min-height: 100vh;
+  padding: 0;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  background: var(--bg-app);
+  color: var(--font-main);
+  transition: color var(--transition-base), background-color var(--transition-base);
+  text-rendering: optimizelegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a:link,
+a:visited {
+  color: var(--color-link);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+a:hover,
+a:active {
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--font-light);
+}
+
+/* ========================================
+   工具类
+   ======================================== */
+
+.ellipsis-1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 1;
+}
+
+.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+}
+
+.icon-spin {
+  animation: icon-loading 1s infinite cubic-bezier(0, 0, 1, 1);
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ========================================
+   动画关键帧
+   ======================================== */
+
+@keyframes icon-loading {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}

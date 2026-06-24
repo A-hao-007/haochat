@@ -1,0 +1,100 @@
+# ===================
+# OS files
+# ===================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===================
+# IDE & Editor
+# ===================
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ===================
+# Java / Maven
+# ===================
+/target/
+/**/target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+.flattened-pom.xml
+
+# Logs
+*.log
+*_rpc_port.txt
+
+# JVM crash logs
+hs_err_pid*
+
+# Temporary files
+*CodeGenerator-Temporary
+*CodeGeneratorFile
+*temporary
+CodeGenerator.java
+TestController.java
+
+# Sensitive config files (root-level only)
+/application-my-prod.properties
+/application-remote-prod.properties
+/application-my-test.properties
+/application-pro.properties
+/application-test.properties
+mybatis-generator-config.xml
+/*/rebel.xml
+
+# yml
+*.yml
+
+# ===================
+# Node.js / Frontend
+# ===================
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+report.html
+
+# Environment files with secrets
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# Package lock (consider committing for reproducible builds)
+# pnpm-lock.yaml
+
+# Cypress
+/cypress/videos/
+/cypress/screenshots/
+
+# Auto-generated
+src/auto-imports.d.ts
+src/components.d.ts
+
+# ===================
+# Misc
+# ===================
+.aider*
+dump.rdb
+*.orig

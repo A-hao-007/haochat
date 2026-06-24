@@ -1,0 +1,337 @@
+// ==========================================
+// HaoChat 联系人页面样式
+// ==========================================
+
+.contacts-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  background: var(--bg-secondary);
+  overflow: hidden;
+
+  // 搜索栏
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+
+    .search-icon {
+      color: var(--font-light);
+      flex-shrink: 0;
+    }
+
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      color: var(--font-main);
+
+      &::placeholder {
+        color: var(--font-placeholder);
+        font-size: 13px;
+      }
+    }
+
+    .search-clear {
+      color: var(--font-light);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 50%;
+
+      &:hover {
+        color: var(--font-main);
+        background: var(--bg-hover);
+      }
+    }
+  }
+
+  // 操作栏
+  .action-bar {
+    padding: 8px 16px;
+    .create-group-btn {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%; padding: 8px; font-size: 13px;
+      color: var(--color-primary); background: var(--color-primary-light);
+      border: 1px dashed var(--color-primary); border-radius: var(--radius-md);
+      cursor: pointer; transition: all var(--transition-fast);
+      justify-content: center;
+      &:hover { background: var(--color-primary); color: #fff; }
+    }
+  }
+  .create-group-panel {
+    padding: 8px 16px; max-height: 300px; overflow-y: auto;
+    .cg-title { font-size: 12px; color: var(--font-light); margin-bottom: 8px; }
+    .cg-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .cg-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: var(--radius-sm); cursor: pointer;
+      transition: background var(--transition-fast);
+      &:hover { background: var(--bg-hover); }
+      &.selected { background: var(--color-primary-light); border: 1px solid var(--color-primary); }
+      .cg-name { flex: 1; font-size: 14px; color: var(--font-main); }
+      .cg-check { color: var(--color-primary); font-weight: bold; font-size: 16px; }
+    }
+    .submit-btn {
+      width: 100%; padding: 10px; font-size: 13px; color: #fff;
+      background: var(--color-primary); border: none; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all var(--transition-fast);
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+      &:hover:not(:disabled) { opacity: 0.9; }
+    }
+    .empty { text-align: center; padding: 20px; color: var(--font-light); font-size: 13px; }
+  }
+  .search-results {
+    border-bottom: 1px solid var(--border-light);
+    max-height: 300px;
+    overflow-y: auto;
+
+    .results-header {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--font-light);
+      text-transform: uppercase;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      transition: background var(--transition-fast);
+
+      &:hover {
+        background: var(--bg-hover);
+      }
+
+      .result-info {
+        flex: 1;
+        min-width: 0;
+
+        .result-name {
+          display: block;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--font-main);
+        }
+
+        .result-uid {
+          font-size: 12px;
+          color: var(--font-light);
+        }
+      }
+
+      .add-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 14px;
+        font-size: 12px;
+        color: var(--color-primary);
+        background: var(--color-primary-light);
+        border: 1px solid var(--color-primary);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+
+        &:hover {
+          color: #fff;
+          background: var(--color-primary);
+        }
+      }
+    }
+  }
+
+  // Tab 切换
+  .tabs {
+    display: flex;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+
+    .tab {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--font-light);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      &:hover {
+        color: var(--font-main);
+      }
+
+      &.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        font-size: 11px;
+        color: #fff;
+        background: #ef4444;
+        border-radius: 9px;
+      }
+    }
+  }
+
+  // 列表区域
+  .list-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      font-size: 14px;
+      color: var(--font-light);
+    }
+  }
+
+  // 联系人项
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    transition: background var(--transition-fast);
+
+    &:hover {
+      background: var(--bg-hover);
+    }
+
+    .contact-info {
+      flex: 1;
+      min-width: 0;
+
+      .contact-name {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--font-main);
+      }
+
+      .contact-status {
+        font-size: 12px;
+        color: var(--color-offline);
+
+        &.online {
+          color: var(--color-online);
+        }
+      }
+    }
+
+    .contact-actions {
+      display: flex;
+      gap: 8px;
+
+      button {
+        padding: 4px 12px;
+        font-size: 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+
+      .msg-btn {
+        color: var(--color-primary);
+        background: var(--color-primary-light);
+        border: 1px solid var(--color-primary);
+
+        &:hover {
+          color: #fff;
+          background: var(--color-primary);
+        }
+      }
+
+      .del-btn {
+        color: var(--font-light);
+        background: transparent;
+        border: 1px solid var(--border-color);
+
+        &:hover {
+          color: #ef4444;
+          border-color: #ef4444;
+          background: rgba(239, 68, 68, 0.06);
+        }
+      }
+    }
+  }
+
+  // 好友请求项
+  .request-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    transition: background var(--transition-fast);
+
+    &:hover {
+      background: var(--bg-hover);
+    }
+
+    .request-info {
+      flex: 1;
+      min-width: 0;
+
+      .request-name {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--font-main);
+      }
+
+      .request-msg {
+        font-size: 12px;
+        color: var(--font-light);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .request-actions {
+      .accept-btn {
+        padding: 5px 16px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #fff;
+        background: var(--color-wechat);
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+
+        &:hover {
+          opacity: 0.9;
+          transform: scale(1.02);
+        }
+      }
+
+      .accepted-text {
+        font-size: 12px;
+        color: var(--font-light);
+      }
+    }
+  }
+}

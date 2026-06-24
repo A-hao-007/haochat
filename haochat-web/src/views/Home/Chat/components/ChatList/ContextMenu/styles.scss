@@ -1,0 +1,27 @@
+.mx-context-menu {
+  padding: 4px !important;
+  background-color: var(--bg-glass) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+
+  .mx-context-menu-item {
+    padding: 8px 12px !important;
+    color: var(--font-main) !important;
+    border-radius: var(--radius-sm) !important;
+
+    .label { padding: 0 !important; font-size: 13px !important; }
+    &:hover { background-color: var(--bg-hover) !important; }
+    &.disabled { color: var(--font-light) !important; }
+  }
+
+  .mx-context-menu-item-sperator {
+    background-color: transparent !important;
+    &::after { background-color: var(--border-light) !important; }
+  }
+
+  .mx-icon-placeholder {
+    width: auto !important; padding-right: 8px !important;
+  }
+}

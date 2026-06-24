@@ -1,0 +1,103 @@
+.chat-message {
+  display: none;
+  padding: 8px 10px;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+
+  &-item {
+    width: 100%;
+    height: 64px;
+    padding: 8px 12px;
+    color: var(--font-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+
+    .item-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .el-avatar {
+      flex: none;
+    }
+
+    .message-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+
+      .person {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--font-main);
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 1px 4px;
+        margin-left: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-gold);
+        background-color: var(--background-4);
+        border-radius: var(--radius-xs);
+        transform: scale(0.85);
+      }
+
+      .message-message {
+        overflow: hidden;
+        font-size: 12px;
+        color: var(--font-light);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        word-break: break-word;
+        margin-top: 2px;
+      }
+    }
+
+    .message-time {
+      flex: none;
+      font-size: 11px;
+      color: var(--font-light);
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 2px;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+
+    &:not(:first-child) {
+      margin-top: 2px;
+    }
+
+    &.active {
+      background-color: var(--bg-active);
+      border-left: 3px solid var(--color-primary);
+      padding-left: 9px; // offset the border
+    }
+
+    // 骨架屏占位
+    &.skeleton-item {
+      cursor: default;
+      pointer-events: none;
+
+      &:hover {
+        background: transparent;
+      }
+    }
+  }
+}
+
+@media only screen and (min-width: 1400px) {
+  .chat-message {
+    display: block;
+  }
+}
