@@ -73,6 +73,14 @@ public abstract class AbstractRedisStringCache<IN, OUT> implements BatchCache<IN
         return resultMap;
     }
 
+    /**
+     * 原地回填缓存值。适用于"调用方已持有最新值、且字段允许短暂弱一致"的高频更新场景，
+     * 避免"改库就删缓存"在热点 key 上造成的反复回源。
+     */
+    public void put(IN req, OUT value) {
+        RedisUtils.set(getKey(req), value, getExpireSeconds());
+    }
+
     @Override
     public void delete(IN req) {
         deleteBatch(Collections.singletonList(req));

@@ -254,11 +254,13 @@ public class WebSocketServiceImpl implements WebSocketService {
     //entrySet的值不是快照数据,但是它支持遍历，所以无所谓了，不用快照也行。
     @Override
     public void sendToAllOnline(WSBaseResp<?> wsBaseResp, Long skipUid) {
+        //广播前序列化一次：同一条消息对每个 channel 重复 toJsonStr 是纯 CPU 浪费，千人在线即放大千倍
+        String jsonStr = JSONUtil.toJsonStr(wsBaseResp);
         ONLINE_WS_MAP.forEach((channel, ext) -> {
             if (Objects.nonNull(skipUid) && Objects.equals(ext.getUid(), skipUid)) {
                 return;
             }
-            threadPoolTaskExecutor.execute(() -> sendMsg(channel, wsBaseResp));
+            threadPoolTaskExecutor.execute(() -> sendMsg(channel, jsonStr));
         });
     }
 
@@ -274,8 +276,9 @@ public class WebSocketServiceImpl implements WebSocketService {
             log.info("用户：{}不在线", uid);
             return;
         }
+        String jsonStr = JSONUtil.toJsonStr(wsBaseResp);
         channels.forEach(channel -> {
-            threadPoolTaskExecutor.execute(() -> sendMsg(channel, wsBaseResp));
+            threadPoolTaskExecutor.execute(() -> sendMsg(channel, jsonStr));
         });
     }
 
@@ -286,7 +289,8 @@ public class WebSocketServiceImpl implements WebSocketService {
             log.info("用户：{}不在线", uid);
             return;
         }
-        channels.forEach(channel -> sendMsg(channel, wsBaseResp));
+        String jsonStr = JSONUtil.toJsonStr(wsBaseResp);
+        channels.forEach(channel -> sendMsg(channel, jsonStr));
     }
 
 
@@ -297,7 +301,11 @@ public class WebSocketServiceImpl implements WebSocketService {
      * @param wsBaseResp
      */
     private void sendMsg(Channel channel, WSBaseResp<?> wsBaseResp) {
-        channel.writeAndFlush(new TextWebSocketFrame(JSONUtil.toJsonStr(wsBaseResp)));
+        sendMsg(channel, JSONUtil.toJsonStr(wsBaseResp));
+    }
+
+    private void sendMsg(Channel channel, String jsonStr) {
+        channel.writeAndFlush(new TextWebSocketFrame(jsonStr));
     }
 
 }

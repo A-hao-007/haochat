@@ -1,5 +1,6 @@
 package com.ahao.haochat.common.common.config;
 
+import com.ahao.haochat.common.common.factory.CountingDiscardPolicy;
 import com.ahao.haochat.common.common.factory.MyThreadFactory;
 import com.ahao.haochat.transaction.annotation.SecureInvokeConfigurer;
 import org.springframework.context.annotation.Bean;
@@ -68,7 +69,7 @@ public class ThreadPoolConfig implements AsyncConfigurer, SecureInvokeConfigurer
         executor.setMaxPoolSize(8);
         executor.setQueueCapacity(1000);//支持同时推送1000人
         executor.setThreadNamePrefix("websocket-executor-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());//满了直接丢弃，默认为不重要消息推送
+        executor.setRejectedExecutionHandler(new CountingDiscardPolicy("websocket"));//满了丢弃（推送有拉取兜底），但丢弃必须可观测
         executor.setThreadFactory(new MyThreadFactory(executor));
         executor.initialize();
         return executor;
@@ -81,7 +82,7 @@ public class ThreadPoolConfig implements AsyncConfigurer, SecureInvokeConfigurer
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(15);
         executor.setThreadNamePrefix("aichat-executor-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());//满了直接丢弃，默认为不重要消息推送
+        executor.setRejectedExecutionHandler(new CountingDiscardPolicy("aichat"));//满了丢弃（AI 回复是增值功能），但丢弃必须可观测
         executor.setThreadFactory(new MyThreadFactory(executor));
         return executor;
     }

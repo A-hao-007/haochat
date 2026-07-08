@@ -86,28 +86,30 @@ public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
             log.warn("onMessage: room not found, roomId={}", message.getRoomId());
             return;
         }
-        ChatMessageResp msgResp = chatService.getMsgResp(message, null);
         //所有房间更新房间最新消息
         roomDao.refreshActiveTime(room.getId(), message.getId(), message.getCreateTime());
-        roomCache.delete(room.getId());
-        if (room.isHotRoom()) {//热门群聊推送所有在线的人
+        //原先这里每条消息 delete 房间缓存，导致越活跃的房间缓存命中率越低（刚删就被下一次读回源再删）。
+        //本次变更只涉及 lastMsgId/activeTime 两个弱一致字段，改为原地回填：并发时偶发的旧值覆盖
+        //会被下一条消息自愈，且缓存本身有 5 分钟 TTL 兜底。
+        room.setLastMsgId(message.getId());
+        room.setActiveTime(message.getCreateTime());
+        roomCache.put(room.getId(), room);
+        //注意：WS 推送已由 MessageSendListener.pushToOnlineClients 在事务提交后直推（broker 故障期的
+        //止血方案，修复后成为主路径）。此消费者曾同时推送导致每条消息被推两遍（客户端按 msgId 去重所以
+        //用户无感，但服务端推送负载翻倍），现统一收敛到直推路径，本消费者只负责数据类异步任务。
+        if (room.isHotRoom()) {
             //更新热门群聊时间-redis
             hotRoomCache.refreshActiveTime(room.getId(), message.getCreateTime());
-            //推送所有人
-            pushService.sendPushMsg(WSAdapter.buildMsgSend(msgResp));
         } else {
             List<Long> memberUidList = new ArrayList<>();
-            if (Objects.equals(room.getType(), RoomTypeEnum.GROUP.getType())) {//普通群聊推送所有群成员
+            if (Objects.equals(room.getType(), RoomTypeEnum.GROUP.getType())) {//普通群聊
                 memberUidList = groupMemberCache.getMemberUidList(room.getId());
-            } else if (Objects.equals(room.getType(), RoomTypeEnum.FRIEND.getType())) {//单聊对象
-                //对单人推送
+            } else if (Objects.equals(room.getType(), RoomTypeEnum.FRIEND.getType())) {//单聊
                 RoomFriend roomFriend = roomFriendDao.getByRoomId(room.getId());
                 memberUidList = Arrays.asList(roomFriend.getUid1(), roomFriend.getUid2());
             }
             //更新所有群成员的会话时间
             contactDao.refreshOrCreateActiveTime(room.getId(), memberUidList, message.getId(), message.getCreateTime());
-            //推送房间成员
-            pushService.sendPushMsg(WSAdapter.buildMsgSend(msgResp), memberUidList);
         }
     }
 
