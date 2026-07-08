@@ -21,8 +21,18 @@
 			@oss path /haochat/*
 			reverse_proxy @oss minio:9000
 
+			# 带内容 hash 的静态资源（index-041c0ce2.js 等）：内容变则文件名变，可永久缓存
+			@immutable path /assets/*
+			header @immutable Cache-Control "public, max-age=31536000, immutable"
+			# SPA 入口每次协商（ETag），保证发版即生效
+			@entry path / /index.html
+			header @entry Cache-Control "no-cache"
+
 			try_files {path} /index.html
-			file_server
+			# 优先返回构建期预压缩的 .br/.gz，运行期零压缩开销
+			file_server {
+				precompressed br gzip
+			}
 		}
 }
 
