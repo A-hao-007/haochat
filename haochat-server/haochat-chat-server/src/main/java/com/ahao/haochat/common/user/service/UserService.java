@@ -36,6 +36,14 @@ public interface UserService {
     void modifyName(Long uid, ModifyNameReq req);
 
     /**
+     * 修改密码
+     *
+     * @param uid 用户ID
+     * @param req 原密码 + 新密码
+     */
+    void modifyPassword(Long uid, ModifyPasswordReq req);
+
+    /**
      * 用户徽章列表
      *
      * @param uid

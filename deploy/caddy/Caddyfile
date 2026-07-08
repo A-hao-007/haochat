@@ -2,16 +2,28 @@
 	encode zstd gzip
 	root * /srv
 
-	@api path /capi/* /doc.html /v2/* /v3/* /swagger* /webjars/*
-	reverse_proxy @api backend:8080
+		route {
+			# /wx/* 是微信服务器回调(公众号接入验证/事件推送/OAuth回调)，必须反代到后端
+			@api path /capi/* /wx/* /doc.html /v2/* /v3/* /swagger* /webjars/*
+			reverse_proxy @api backend:8080 {
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Real-IP {remote_host}
+			}
 
-	@websocket path /websocket*
-	reverse_proxy @websocket backend:8090
+			@websocket path /websocket*
+			reverse_proxy @websocket backend:8090 {
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Real-IP {remote_host}
+			}
 
-	handle {
-		try_files {path} /index.html
-		file_server
-	}
+			# MinIO 对象存储：预签名上传(PUT)与下载(GET)都走主域名的 bucket 路径前缀，
+			# 经此反代到 minio:9000（Caddy 默认透传 Host，预签名签名校验通过）。
+			@oss path /haochat/*
+			reverse_proxy @oss minio:9000
+
+			try_files {path} /index.html
+			file_server
+		}
 }
 
 {$MINIO_DOMAIN} {

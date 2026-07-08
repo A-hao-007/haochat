@@ -144,12 +144,25 @@ watch(
   },
   // { immediate: true },
 )
+// 会话草稿：按 roomId 暂存输入框内容（innerHTML，保留@成员节点），切换会话不丢失。
+// 模块内存即可——页面刷新即清空，避免"已发送的内容因持久化在重载后复活"这类脏状态
+const roomDrafts = new Map<number, string>()
+
 watch(
   currentRoomId,
   (val, oldVal) => {
     if (val !== oldVal) {
+      // 保存旧会话草稿（首次 immediate 触发时 oldVal/editorRef 为空，自然跳过）
+      if (oldVal !== undefined && oldVal !== null && editorRef.value) {
+        roomDrafts.set(oldVal, editorRef.value.innerHTML)
+      }
       inputStr.value = ''
       personList.value = cachedStore.currentAtUsersList as CacheUserItem[]
+      // 恢复新会话草稿，并同步 inputStr/父组件模型（发送按钮可用态依赖它）
+      if (editorRef.value) {
+        editorRef.value.innerHTML = roomDrafts.get(val) || ''
+        onInputText()
+      }
     }
   },
   { immediate: true },
@@ -278,7 +291,11 @@ const checkIsShowSelectDialog = () => {
       return
     }
     showDialog.value = true
+    // 直接刷新候选人列表，不依赖 watch(searchKey) 的变化检测——
+    // 输入单独一个"@"时 keyWord 是空字符串，若 searchKey 之前也是空字符串（如首次打开弹窗），
+    // 赋值前后值相同，watch 不会触发，导致 personList 永远拿不到数据、候选人列表一直是空的
     searchKey.value = keyWord
+    personList.value = cachedStore.filterUsers(keyWord) as CacheUserItem[]
     // 记下弹窗前光标位置range
     editorRange.value = rangeInfo
   } else {

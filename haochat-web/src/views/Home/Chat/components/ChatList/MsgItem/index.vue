@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, reactive, ref, type Ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { pageSize, useChatStore } from '@/stores/chat'
 import { formatTimestamp } from '@/utils/computedTime'
 import { useBadgeInfo, useUserInfo } from '@/hooks/useCached'
-import type { CacheUserItem, MessageType, MsgType } from '@/services/types'
+import type { CacheUserItem, MessageType, MsgType, TextBody } from '@/services/types'
 import { useElementVisibility } from '@vueuse/core'
 import type { TooltipTriggerType } from 'element-plus/es/components/tooltip/src/trigger'
 import { useLikeToggle } from '@/hooks/useLikeToggle'
 import { MsgEnum } from '@/enums'
 import eventBus from '@/utils/eventBus'
 import { useGlobalStore } from '@/stores/global'
+import apis from '@/services/apis'
 
 import MsgOption from '../MsgOption/index.vue'
 import ContextMenu from '../ContextMenu/index.vue'
@@ -52,9 +54,29 @@ const userInfo = useUserInfo(fromUser.value.uid)
 const wearingItemId = computed(() => userInfo?.value?.wearingItemId)
 const badgeInfo = useBadgeInfo(wearingItemId)
 const isCurrentUser = computed(() => fromUser.value.uid === userStore?.userInfo.uid)
+// [AI-CONTEXT] AI助手消息的视觉区分标记，来自后端按已注册AI uid名单计算的isBot字段
+const isBotMsg = computed(() => !!fromUser.value.isBot)
+// 未读分割线画在本条消息上方
+const isFirstUnread = computed(
+  () => chatStore.firstUnreadMsgId.get(message.value.roomId) === message.value.id,
+)
+
+// 停止AI流式生成：调后端接口后本地立即收起光标和按钮；
+// 后端会用已生成的部分内容落库，真实消息到达后自动替换这个占位消息
+const onStopStream = async () => {
+  const streamId = props.msg.streamId
+  if (!streamId) return
+  props.msg.streaming = false
+  try {
+    await apis.stopAiStream({ streamId }).send()
+  } catch {
+    // 停止失败就让它继续生成，不打扰用户
+  }
+}
 const chatCls = computed(() => ({
   'chat-item': true,
   'is-me': isCurrentUser.value,
+  'is-bot': isBotMsg.value,
   'right': (isCurrentUser.value && props.bubbleMode === 'spread') || props.bubbleMode === 'right',
 }))
 
@@ -178,10 +200,34 @@ const currentReadList = (msgId: number) => {
   globalStore.currentReadUnreadList.msgId = msgId
   globalStore.currentReadUnreadList.show = true
 }
+
+// AI助手发起的高风险操作需要用户点击确认/取消
+const needsConfirmation = computed(
+  () =>
+    message.value.type === MsgEnum.TEXT &&
+    (message.value.body as TextBody)?.needsConfirmation === true,
+)
+const confirmHandled = ref(false) // 本地立即置位，避免重复点击
+const confirmLoading = ref(false)
+
+const handleConfirmAction = async (confirmed: boolean) => {
+  if (confirmHandled.value || confirmLoading.value) return
+  confirmLoading.value = true
+  try {
+    await apis.confirmAgentAction({ roomId: message.value.roomId, confirmed })
+    confirmHandled.value = true
+  } catch (e) {
+    ElMessage.error('操作失败，请重试')
+  } finally {
+    confirmLoading.value = false
+  }
+}
 </script>
 
 <template>
   <span v-if="isShowTimeBlock && msg.timeBlock" class="send-time-block">{{ msg.timeBlock }}</span>
+  <!-- 未读分割线：进入会话时定位到的第一条未读消息上方 -->
+  <div v-if="isFirstUnread" class="unread-divider"><span>以下是新消息</span></div>
   <span v-if="isRecall" class="send-time-block">{{ message.body }}</span>
   <div ref="msgVisibleEl">
     <transition name="remove">
@@ -208,12 +254,14 @@ const currentReadList = (msgId: number) => {
               <!-- 用户徽章 -->
               <img v-show="badgeInfo?.img" class="user-badge" :src="badgeInfo?.img" />
             </el-tooltip>
+            <!-- AI助手标识 -->
+            <span v-if="isBotMsg" class="bot-tag" title="AI助手">🤖</span>
             <!-- 用户名 -->
             <span class="user-name" @contextmenu.prevent.stop="handleUserRightClick($event)">
               {{ userInfo.name }}
             </span>
-            <!-- 消息归属地 -->
-            <span class="user-ip">({{ userInfo.locPlace || '未知' }})</span>
+            <!-- 消息发送者IP属地（AI助手消息不展示属地） -->
+            <span v-if="!isBotMsg" class="user-ip">({{ fromUser.senderLocation || '未知' }})</span>
             <!-- 消息发送时间 -->
             <span class="send-time" v-if="isShowTime">
               {{ formatTimestamp(msg.message.sendTime) }}
@@ -256,7 +304,18 @@ const currentReadList = (msgId: number) => {
               <!-- 消息加载中 -->
               <Icon v-if="msg?.loading" icon="loading" :size="20" spin />
               <!-- 渲染消息内容体 -->
-              <RenderMessage :message="message" />
+              <RenderMessage :message="message" :is-bot="isBotMsg" />
+              <!-- AI流式回复生成中的打字机光标 -->
+              <span v-if="msg?.streaming" class="streaming-cursor" />
+              <!-- 停止生成 -->
+              <span
+                v-if="msg?.streaming && msg?.streamId"
+                class="streaming-stop"
+                title="停止生成"
+                @click.stop="onStopStream"
+              >
+                ■ 停止
+              </span>
             </div>
           </el-tooltip>
           <!-- 消息回复部分 -->
@@ -270,6 +329,23 @@ const currentReadList = (msgId: number) => {
             <span class="ellipsis">
               {{ message.body.reply.username }}: {{ message.body.reply.body }}
             </span>
+          </div>
+          <!-- AI助手高风险操作确认按钮 -->
+          <div v-if="needsConfirmation" class="chat-item-confirm">
+            <template v-if="!confirmHandled">
+              <el-button
+                size="small"
+                type="primary"
+                :loading="confirmLoading"
+                @click="handleConfirmAction(true)"
+              >
+                确认
+              </el-button>
+              <el-button size="small" :loading="confirmLoading" @click="handleConfirmAction(false)">
+                取消
+              </el-button>
+            </template>
+            <span v-else class="confirm-done-tip">已处理</span>
           </div>
           <!-- 点赞数量和倒赞数量及动画 -->
           <div v-if="likeCount + dislikeCount > 0" class="extra">

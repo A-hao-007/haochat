@@ -24,4 +24,11 @@ public class RegisterReq {
     @NotBlank(message = "密码不能为空")
     @Length(min = 6, max = 50, message = "密码长度6-50个字符")
     private String password;
+
+    @NotBlank(message = "邮箱不能为空")
+    @Pattern(regexp = "^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$", message = "邮箱格式有误")
+    private String email;
+
+    @NotBlank(message = "请输入邮箱验证码")
+    private String emailCode;
 }

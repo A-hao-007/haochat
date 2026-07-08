@@ -63,6 +63,8 @@ mybatis-generator-config.xml
 
 # yml
 *.yml
+# 部署编排文件必须进版本库（否则 worktree/新 clone 缺少部署能力）
+!/docker-compose.yml
 
 # ===================
 # Node.js / Frontend

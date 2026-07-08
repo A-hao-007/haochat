@@ -29,6 +29,7 @@ import com.ahao.haochat.common.user.service.cache.UserSummaryCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +74,18 @@ public class UserServiceImpl implements UserService {
         return UserAdapter.buildUserInfoResp(userInfo, countByValidItemId);
     }
 
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
+    @Override
+    public void modifyPassword(Long uid, ModifyPasswordReq req) {
+        User user = userDao.getById(uid);
+        AssertUtil.isNotEmpty(user, "用户不存在");
+        AssertUtil.isTrue(PASSWORD_ENCODER.matches(req.getOldPassword(), user.getPassword()), "原密码错误");
+        AssertUtil.isFalse(PASSWORD_ENCODER.matches(req.getNewPassword(), user.getPassword()), "新密码不能与原密码相同");
+        userDao.modifyPassword(uid, PASSWORD_ENCODER.encode(req.getNewPassword()));
+        log.info("用户修改密码成功: uid={}", uid);
+    }
+
     @Override
     @Transactional
     public void modifyName(Long uid, ModifyNameReq req) {
@@ -83,7 +96,7 @@ public class UserServiceImpl implements UserService {
         AssertUtil.isEmpty(oldUser, "名字已经被抢占了，请换一个哦~~");
         //判断改名卡够不够
         UserBackpack firstValidItem = userBackpackDao.getFirstValidItem(uid, ItemEnum.MODIFY_NAME_CARD.getId());
-        AssertUtil.isNotEmpty(firstValidItem, "改名次数不够了，等后续活动送改名卡哦");
+        AssertUtil.isNotEmpty(firstValidItem, "改名次数不够了，每月1日会自动补发一张改名卡，请耐心等待~");
         //使用改名卡
         boolean useSuccess = userBackpackDao.invalidItem(firstValidItem.getId());
         if (useSuccess) {//用乐观锁，就不用分布式锁了
@@ -107,6 +120,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void wearingBadge(Long uid, WearingBadgeReq req) {
+        // badgeId=0 表示卸下徽章
+        if (req.getBadgeId() != null && req.getBadgeId() == 0) {
+            userDao.wearingBadge(uid, 0L);
+            userCache.userInfoChange(uid);
+            return;
+        }
         //确保有这个徽章
         UserBackpack firstValidItem = userBackpackDao.getFirstValidItem(uid, req.getBadgeId());
         AssertUtil.isNotEmpty(firstValidItem, "您没有这个徽章哦，快去达成条件获取吧");

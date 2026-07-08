@@ -6,6 +6,7 @@ import com.ahao.haochat.common.chat.domain.entity.RoomGroup;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminRevokeReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberExitReq;
+import com.ahao.haochat.common.chat.domain.vo.request.member.TransferLordReq;
 import com.ahao.haochat.common.chat.service.IGroupMemberService;
 import com.ahao.haochat.common.chat.service.adapter.MemberAdapter;
 import com.ahao.haochat.common.chat.service.cache.GroupMemberCache;
@@ -161,5 +162,34 @@ public class GroupMemberServiceImpl implements IGroupMemberService {
             pushService.sendPushMsg(ws, memberUidList);
             groupMemberCache.evictMemberUidList(room.getId());
         }
+    }
+
+    /**
+     * 转让群主：原群主降为管理员，目标成员升为群主
+     *
+     * @param uid     当前群主用户ID
+     * @param request 请求信息
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void transferLord(Long uid, TransferLordReq request) {
+        Long roomId = request.getRoomId();
+        Long targetUid = request.getTargetUid();
+        AssertUtil.isFalse(targetUid.equals(uid), GroupErrorEnum.CANNOT_TRANSFER_TO_SELF);
+
+        // 1. 判断群聊是否存在
+        RoomGroup roomGroup = roomGroupDao.getByRoomId(roomId);
+        AssertUtil.isNotEmpty(roomGroup, GroupErrorEnum.GROUP_NOT_EXIST);
+
+        // 2. 判断该用户是否是群主
+        Boolean isLord = groupMemberDao.isLord(roomGroup.getId(), uid);
+        AssertUtil.isTrue(isLord, GroupErrorEnum.NOT_ALLOWED_OPERATION);
+
+        // 3. 判断目标是否在群中
+        Boolean isGroupShip = groupMemberDao.isGroupShip(roomId, Collections.singletonList(targetUid));
+        AssertUtil.isTrue(isGroupShip, GroupErrorEnum.USER_NOT_IN_GROUP);
+
+        // 4. 转让
+        groupMemberDao.transferLord(roomGroup.getId(), uid, targetUid);
     }
 }

@@ -43,8 +43,8 @@ const sessionList = computed(() =>
       tag: item.hot_Flag === IsAllUserEnum.Yes ? '官方' : '',
       lastMsg: LastUserMsg || item.text || '欢迎使用HaoChat',
       lastMsgTime: formatTimestamp(item?.activeTime),
-      pinned: (item as any).pinned === 1,
-      muted: (item as any).muted === 1,
+      pinned: item.pinned === 1,
+      muted: item.muted === 1,
     }
   }),
 )
@@ -63,11 +63,11 @@ const closeMenu = () => { contextMenu.value.show = false }
 
 const togglePin = async () => {
   const sid = contextMenu.value.roomId
-  const session = chatStore.sessionList.find(s => s.roomId === sid)
-  const pinned = !(session as any)?.pinned
+  const session = chatStore.sessionList.find((s) => s.roomId === sid)
+  const pinned = !session?.pinned
   try {
     await apis.pinContact(sid, pinned).send()
-    if (session) (session as any).pinned = pinned
+    chatStore.updateSession(sid, { pinned: pinned ? 1 : 0 })
     ElMessage.success(pinned ? '已置顶' : '已取消置顶')
   } catch { ElMessage.error('操作失败') }
   closeMenu()
@@ -75,11 +75,11 @@ const togglePin = async () => {
 
 const toggleMute = async () => {
   const sid = contextMenu.value.roomId
-  const session = chatStore.sessionList.find(s => s.roomId === sid)
-  const muted = !(session as any)?.muted
+  const session = chatStore.sessionList.find((s) => s.roomId === sid)
+  const muted = !session?.muted
   try {
     await apis.muteContact(sid, muted).send()
-    if (session) (session as any).muted = muted
+    chatStore.updateSession(sid, { muted: muted ? 1 : 0 })
     ElMessage.success(muted ? '已开启免打扰' : '已关闭免打扰')
   } catch { ElMessage.error('操作失败') }
   closeMenu()
@@ -99,44 +99,56 @@ const load = () => { chatStore.getSessionList() }
 </script>
 
 <template>
-  <ul class="chat-message" v-infinite-scroll="load" :infinite-scroll-immediate="false">
-    <template v-if="isLoading">
-      <li v-for="i in 8" :key="'skeleton-' + i" class="chat-message-item skeleton-item">
-        <div class="item-wrapper">
-          <Skeleton variant="circle" :width="38" :height="38" />
-          <div class="message-info">
-            <Skeleton variant="text" width="120px" />
-            <Skeleton variant="text" width="180px" />
+  <aside class="session-panel">
+    <div class="session-header">
+      <h2>消息</h2>
+      <span>{{ sessionList.length }} 个会话</span>
+    </div>
+
+    <ul class="chat-message" v-infinite-scroll="load" :infinite-scroll-immediate="false">
+      <template v-if="isLoading">
+        <li v-for="i in 8" :key="'skeleton-' + i" class="chat-message-item skeleton-item">
+          <div class="item-wrapper">
+            <Skeleton variant="circle" :width="38" :height="38" />
+            <div class="message-info">
+              <Skeleton variant="text" width="120px" />
+              <Skeleton variant="text" width="180px" />
+            </div>
+            <Skeleton variant="text" width="48px" />
           </div>
-          <Skeleton variant="text" width="48px" />
+        </li>
+      </template>
+      <li
+        v-for="(item, index) in sessionList"
+        :key="index"
+        :data-room-id="item.roomId"
+        :class="['chat-message-item', { active: currentSession.roomId === item.roomId, pinned: item.pinned }]"
+        @click="onSelectSession(item.roomId, item.type)"
+        @contextmenu="onContextMenu($event, item.roomId)"
+      >
+        <div class="item-wrapper">
+          <el-badge
+            :value="item.unreadCount"
+            :max="999"
+            :hidden="item.unreadCount < 1"
+            :class="['item', { 'badge-muted': item.muted }]"
+          >
+            <el-avatar shape="circle" :size="42" :src="item.avatar" />
+          </el-badge>
+          <div class="message-info">
+            <div class="info-top">
+              <span class="person">{{ item.name }}</span>
+              <span v-if="item.tag" class="tag">{{ item.tag }}</span>
+              <span v-if="item.pinned" class="pin-icon">📌</span>
+              <span v-if="item.muted" class="mute-icon">🔕</span>
+            </div>
+            <div class="message-message">{{ item.lastMsg }}</div>
+          </div>
+          <span class="message-time">{{ item.lastMsgTime }}</span>
         </div>
       </li>
-    </template>
-    <li
-      v-for="(item, index) in sessionList"
-      :key="index"
-      :data-room-id="item.roomId"
-      :class="['chat-message-item', { active: currentSession.roomId === item.roomId }]"
-      @click="onSelectSession(item.roomId, item.type)"
-      @contextmenu="onContextMenu($event, item.roomId)"
-    >
-      <div class="item-wrapper">
-        <el-badge :value="item.unreadCount" :max="999" :hidden="item.unreadCount < 1" class="item">
-          <el-avatar shape="circle" :size="38" :src="item.avatar" />
-        </el-badge>
-        <div class="message-info">
-          <div class="info-top">
-            <span class="person">{{ item.name }}</span>
-            <span v-if="item.tag" class="tag">{{ item.tag }}</span>
-            <span v-if="item.pinned" class="pin-icon">📌</span>
-            <span v-if="item.muted" class="mute-icon">🔕</span>
-          </div>
-          <div class="message-message">{{ item.lastMsg }}</div>
-        </div>
-        <span class="message-time">{{ item.lastMsgTime }}</span>
-      </div>
-    </li>
-  </ul>
+    </ul>
+  </aside>
 
   <!-- 右键菜单 -->
   <Teleport to="body">
@@ -178,4 +190,8 @@ const load = () => { chatStore.getSessionList() }
 .context-menu .menu-item.danger:hover { background: rgba(239,68,68,0.1); }
 .pin-icon, .mute-icon { font-size: 11px; margin-left: 4px; }
 .info-top { display: flex; align-items: center; gap: 4px; }
+.chat-message-item.pinned { background: var(--bg-hover); }
+.badge-muted :deep(.el-badge__content) {
+  background-color: var(--font-light) !important;
+}
 </style>

@@ -49,31 +49,45 @@ const handleLogout = async () => {
     userStore.userInfo = {}
     localStorage.removeItem('TOKEN')
     localStorage.removeItem('USER_INFO')
-    router.push('/login')
+    // 整页刷新回登录页：SPA 内部跳转不会清掉内存里的消息/会话/当前房间等状态，
+    // 下一个账号在同一浏览器登录时会看到上一个账号的聊天内容（已实际发生过）
+    window.location.replace('/login')
   } catch {}
 }
 </script>
 
 <template>
   <aside class="side-toolbar">
-    <Avatar :src="userStore.isSign ? avatar : ''" :size="isPc ? 50 : 40" v-login="showSettingBox" />
+    <div class="toolbar-brand">
+      <span class="brand-mark">H</span>
+      <span class="brand-name">HaoChat</span>
+    </div>
+
     <div class="tool-icons">
-      <router-link exactActiveClass="tool-icon-active" to="/">
+      <router-link class="tool-link" exactActiveClass="tool-icon-active" to="/">
         <el-badge :value="unReadMark.newMsgUnreadCount" :hidden="unReadMark.newMsgUnreadCount === 0" :max="99">
-          <Icon class="tool-icon" icon="chat" :size="28" />
+          <Icon class="tool-icon" icon="chat" :size="20" />
         </el-badge>
+        <span>消息</span>
       </router-link>
-      <router-link v-login-show exactActiveClass="tool-icon-active" to="/contact">
+      <router-link v-login-show class="tool-link" exactActiveClass="tool-icon-active" to="/contact">
         <el-badge :value="unReadMark.newFriendUnreadCount" :hidden="unReadMark.newFriendUnreadCount === 0" :max="99">
-          <Icon class="tool-icon" icon="group" :size="28" />
+          <Icon class="tool-icon" icon="group" :size="20" />
         </el-badge>
+        <span>联系人</span>
+      </router-link>
+      <router-link v-login-show class="tool-link" exactActiveClass="tool-icon-active" to="/groups">
+        <!-- 包一层隐藏的 el-badge，与消息/联系人保持相同 DOM 结构，否则图标与文字会错位换行 -->
+        <el-badge hidden>
+          <Icon class="tool-icon" icon="group" :size="20" />
+        </el-badge>
+        <span>群组</span>
       </router-link>
     </div>
 
     <div class="menu">
-      <!-- AI助手 -->
       <div class="menu-item" title="AI助手" @click="openAIChat">
-        <Icon icon="huojian" :size="28" colorful />
+        <Icon icon="huojian" :size="18" colorful />
         <span class="menu-item-name">AI助手</span>
       </div>
     </div>
@@ -85,11 +99,11 @@ const handleLogout = async () => {
           <IEpMoon v-else :size="20" />
         </div>
       </el-tooltip>
-      <el-tooltip effect="dark" content="退出登录" :placement="isPc ? 'right' : 'bottom'">
-        <div class="logout-btn" @click="handleLogout">
-          <IEpSwitchButton :size="18" />
-        </div>
-      </el-tooltip>
+      <button class="profile-entry" type="button" v-login="showSettingBox">
+        <Avatar :src="userStore.isSign ? avatar : ''" :size="30" />
+        <span>我的主页</span>
+      </button>
+      <button class="logout-btn" type="button" @click="handleLogout">退出</button>
     </div>
 
     <UserSettingBox v-model="visible" />

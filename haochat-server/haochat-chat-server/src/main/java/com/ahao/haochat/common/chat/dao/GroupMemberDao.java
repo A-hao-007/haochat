@@ -87,6 +87,56 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
     }
 
     /**
+     * 获取用户加入的所有群（不限角色），用于"我的群组"列表
+     */
+    public List<GroupMember> getMyGroups(Long uid) {
+        return lambdaQuery()
+                .eq(GroupMember::getUid, uid)
+                .list();
+    }
+
+    /**
+     * 批量获取成员群内昵称
+     */
+    public Map<Long, String> getMemberMapNickname(Long groupId, List<Long> uidList) {
+        List<GroupMember> list = lambdaQuery()
+                .eq(GroupMember::getGroupId, groupId)
+                .in(GroupMember::getUid, uidList)
+                .select(GroupMember::getUid, GroupMember::getNickname)
+                .list();
+        return list.stream()
+                .filter(m -> m.getNickname() != null)
+                .collect(Collectors.toMap(GroupMember::getUid, GroupMember::getNickname));
+    }
+
+    /**
+     * 设置自己的群内昵称
+     */
+    public void updateNickname(Long groupId, Long uid, String nickname) {
+        LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, uid)
+                .set(GroupMember::getNickname, nickname);
+        this.update(wrapper);
+    }
+
+    /**
+     * 转让群主：原群主降为管理员，目标成员升为群主
+     */
+    public void transferLord(Long groupId, Long fromUid, Long toUid) {
+        LambdaUpdateWrapper<GroupMember> demote = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, fromUid)
+                .set(GroupMember::getRole, GroupRoleEnum.MANAGER.getType());
+        this.update(demote);
+        LambdaUpdateWrapper<GroupMember> promote = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, toUid)
+                .set(GroupMember::getRole, GroupRoleEnum.LEADER.getType());
+        this.update(promote);
+    }
+
+    /**
      * 判断用户是否在房间中
      *
      * @param roomId  房间ID

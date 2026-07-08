@@ -33,6 +33,8 @@ export function useTheme() {
    */
   const applyTheme = (theme: Theme) => {
     document.documentElement.setAttribute('data-theme', theme)
+    // 同步 Element Plus 自身的暗黑模式（其组件默认样式依赖 html.dark）
+    document.documentElement.classList.toggle('dark', theme === 'dark')
   }
 
   /**

@@ -4,15 +4,27 @@ export default {
   // -------------- 认证相关 ---------------
   login: `${prefix}/capi/user/public/login`,
   register: `${prefix}/capi/user/public/register`,
+  registerEmailCode: `${prefix}/capi/user/public/register/email/code`,
+  emailLogin: `${prefix}/capi/user/public/email/login`,
+  loginEmailCode: `${prefix}/capi/user/public/login/email/code`, // 发送登录验证码
+  emailCodeLogin: `${prefix}/capi/user/public/email/code/login`, // 邮箱验证码登录
+  forgotCode: `${prefix}/capi/user/public/password/forgot/code`,
+  forgotReset: `${prefix}/capi/user/public/password/forgot/reset`,
+  bindEmailCode: `${prefix}/capi/user/email/code`,
+  bindEmail: `${prefix}/capi/user/email`,
   searchUser: `${prefix}/capi/user/public/search`,
   updateAvatar: `${prefix}/capi/user/avatar`,
+  modifyPassword: `${prefix}/capi/user/password`, // 修改密码
 
   getMemberStatistic: `${prefix}/capi/chat/public/member/statistic`,
   getUserInfoBatch: `${prefix}/capi/user/public/summary/userInfo/batch`,
   getBadgesBatch: `${prefix}/capi/user/public/badges/batch`,
   getAllUserBaseInfo: `${prefix}/capi/room/group/member/list`, // 房间内的所有群成员列表-@专用
+  getAiBots: `${prefix}/capi/chat/public/ai/bots`, // 已启用的AI助手列表
   getMsgList: `${prefix}/capi/chat/public/msg/page`,
   sendMsg: `${prefix}/capi/chat/msg`,
+  confirmAgentAction: `${prefix}/capi/chat/msg/confirm`, // 确认/取消AI助手发起的高风险操作提议
+  stopAiStream: `${prefix}/capi/chat/ai/stop`, // 停止AI流式回复
   getUserInfoDetail: `${prefix}/capi/user/userInfo`, // 获取用户信息详情
   modifyUserName: `${prefix}/capi/user/name`, // 修改用户名
   getBadgeList: `${prefix}/capi/user/badges`, // 徽章列表
@@ -43,6 +55,11 @@ export default {
   addAdmin: `${prefix}/capi/room/group/admin`, // 添加管理员
   revokeAdmin: `${prefix}/capi/room/group/admin`, // 添加管理员
   groupDetail: `${prefix}/capi/room/public/group`, // 群组详情
+  transferLord: `${prefix}/capi/room/group/lord`, // 转让群主
+  updateGroupNotice: `${prefix}/capi/room/group/notice`, // 更新群公告
+  readGroupNotice: `${prefix}/capi/room/group/notice/read`, // 标记群公告已读
+  updateGroupNickname: `${prefix}/capi/room/group/nickname`, // 更新我在群里的昵称
+  myGroupList: `${prefix}/capi/room/group/my-list`, // 我的群组列表
   sessionDetail: `${prefix}/capi/chat/public/contact/detail`, // 会话详情
   sessionDetailWithFriends: `${prefix}/capi/chat/public/contact/detail/friend`, // 会话详情(联系人列表发消息用)
   pinContact: `${prefix}/capi/chat/contact/pin`,

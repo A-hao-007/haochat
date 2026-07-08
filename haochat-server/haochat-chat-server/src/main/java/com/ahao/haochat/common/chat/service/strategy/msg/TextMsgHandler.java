@@ -10,6 +10,7 @@ import com.ahao.haochat.common.chat.domain.vo.request.msg.TextMsgReq;
 import com.ahao.haochat.common.chat.domain.vo.response.msg.TextMsgResp;
 import com.ahao.haochat.common.chat.service.adapter.MessageAdapter;
 import com.ahao.haochat.common.chat.service.cache.MsgCache;
+import com.ahao.haochat.common.chatai.handler.ChatAIHandlerFactory;
 import com.ahao.haochat.common.common.domain.enums.YesOrNoEnum;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.common.utils.discover.PrioritizedUrlDiscover;
@@ -100,6 +101,11 @@ public class TextMsgHandler extends AbstractMsgHandler<TextMsgReq> {
             extra.setAtUidList(body.getAtUidList());
 
         }
+        //AI助手待确认标记：仅发送者是已注册AI助手时才生效，防止普通用户在请求体里伪造
+        if (Boolean.TRUE.equals(body.getNeedsConfirmation())
+                && ChatAIHandlerFactory.getAllAIUserIds().contains(msg.getFromUid())) {
+            extra.setNeedsConfirmation(true);
+        }
 
         messageDao.updateById(update);
     }
@@ -110,6 +116,7 @@ public class TextMsgHandler extends AbstractMsgHandler<TextMsgReq> {
         resp.setContent(msg.getContent());
         resp.setUrlContentMap(Optional.ofNullable(msg.getExtra()).map(MessageExtra::getUrlContentMap).orElse(null));
         resp.setAtUidList(Optional.ofNullable(msg.getExtra()).map(MessageExtra::getAtUidList).orElse(null));
+        resp.setNeedsConfirmation(Optional.ofNullable(msg.getExtra()).map(MessageExtra::getNeedsConfirmation).orElse(null));
         //回复消息
         Optional<Message> reply = Optional.ofNullable(msg.getReplyMsgId())
                 .map(msgCache::getMsg)

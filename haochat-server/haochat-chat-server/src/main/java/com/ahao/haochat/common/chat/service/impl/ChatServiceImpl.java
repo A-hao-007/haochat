@@ -115,6 +115,13 @@ public class ChatServiceImpl implements ChatService {
         if (room.isHotRoom()) {//全员群跳过校验
             return;
         }
+        if (User.UID_SYSTEM.equals(uid)) {//系统消息（如入群提示）不受成员校验限制
+            return;
+        }
+        if (com.ahao.haochat.common.chatai.handler.ChatAIHandlerFactory.getAllAIUserIds().contains(uid)) {
+            //AI助手回复消息：AI助手不是真实的group_member记录（仅在@候选人列表中虚拟展示），不受成员校验限制
+            return;
+        }
         if (room.isRoomFriend()) {
             RoomFriend roomFriend = roomFriendDao.getByRoomId(request.getRoomId());
             AssertUtil.equal(NormalOrNoEnum.NORMAL.getStatus(), roomFriend.getStatus(), "您已经被对方拉黑");
@@ -167,13 +174,19 @@ public class ChatServiceImpl implements ChatService {
         List<Long> uidList = resultList.stream().map(ChatMemberResp::getUid).collect(Collectors.toList());
         RoomGroup roomGroup = roomGroupDao.getByRoomId(request.getRoomId());
         Map<Long, Integer> uidMapRole = groupMemberDao.getMemberMapRole(roomGroup.getId(), uidList);
-        resultList.forEach(member -> member.setRoleId(uidMapRole.get(member.getUid())));
+        Map<Long, String> uidMapNickname = groupMemberDao.getMemberMapNickname(roomGroup.getId(), uidList);
+        resultList.forEach(member -> {
+            member.setRoleId(uidMapRole.get(member.getUid()));
+            member.setNickname(uidMapNickname.get(member.getUid()));
+        });
         //组装结果
         return new CursorPageBaseResp<>(ChatMemberHelper.generateCursor(activeStatusEnum, timeCursor), isLast, resultList);
     }
 
     @Override
     public CursorPageBaseResp<ChatMessageResp> getMsgPage(ChatMessagePageReq request, Long receiveUid) {
+        //越权校验：非热门房间必须是该房间成员才能读消息，否则构造任意 roomId 即可窥探他人私聊/群聊
+        checkReadPermission(request.getRoomId(), receiveUid);
         //用最后一条消息id，来限制被踢出的人能看见的最大一条消息
         Long lastMsgId = getLastMsgId(request.getRoomId(), receiveUid);
         CursorPageBaseResp<Message> cursorPage = messageDao.getCursorPage(request.getRoomId(), request, lastMsgId);
@@ -181,6 +194,30 @@ public class ChatServiceImpl implements ChatService {
             return CursorPageBaseResp.empty();
         }
         return CursorPageBaseResp.init(cursorPage, getMsgRespBatch(cursorPage.getList(), receiveUid));
+    }
+
+    /**
+     * 读消息权限校验：热门房间对所有人开放；单聊仅双方可读；群聊仅群成员可读。
+     * AI 单聊本质是真实好友房间（用户是 room_friend 的 uid1/uid2 之一），故走单聊分支即可通过。
+     */
+    private void checkReadPermission(Long roomId, Long receiveUid) {
+        Room room = roomCache.get(roomId);
+        AssertUtil.isNotEmpty(room, "房间号有误");
+        if (room.isHotRoom()) {
+            return;
+        }
+        AssertUtil.isNotEmpty(receiveUid, "请先登录");
+        if (room.isRoomFriend()) {
+            RoomFriend roomFriend = roomFriendDao.getByRoomId(roomId);
+            AssertUtil.isNotEmpty(roomFriend, "房间号有误");
+            AssertUtil.isTrue(receiveUid.equals(roomFriend.getUid1()) || receiveUid.equals(roomFriend.getUid2()),
+                    "你没有权限查看该会话");
+        } else if (room.isRoomGroup()) {
+            RoomGroup roomGroup = roomGroupCache.get(roomId);
+            AssertUtil.isNotEmpty(roomGroup, "房间号有误");
+            GroupMember member = groupMemberDao.getMember(roomGroup.getId(), receiveUid);
+            AssertUtil.isNotEmpty(member, "你不在该群聊中");
+        }
     }
 
     private Long getLastMsgId(Long roomId, Long receiveUid) {
@@ -191,7 +228,8 @@ public class ChatServiceImpl implements ChatService {
         }
         AssertUtil.isNotEmpty(receiveUid, "请先登录");
         Contact contact = contactDao.get(receiveUid, roomId);
-        return contact.getLastMsgId();
+        // 无会话记录（如首次打开 AI 会话）时返回 null，避免空指针，从最新消息开始展示
+        return contact == null ? null : contact.getLastMsgId();
     }
 
     @Override
@@ -226,6 +264,21 @@ public class ChatServiceImpl implements ChatService {
         checkRecall(uid, message);
         //执行消息撤回
         recallMsgHandler.recall(uid, message);
+    }
+
+    // [AUDIT-ADD] B-消息编辑：仅发送者可编辑自己的文本消息，并更新 updateTime
+    @Override
+    public void editMsg(Long uid, ChatMessageEditReq request) {
+        Message message = messageDao.getById(request.getMsgId());
+        AssertUtil.isNotEmpty(message, "消息有误");
+        AssertUtil.equal(message.getType(), MessageTypeEnum.TEXT.getType(), "仅文本消息支持编辑");
+        AssertUtil.isTrue(Objects.equals(uid, message.getFromUid()), "抱歉,您没有权限");
+        AssertUtil.isFalse(request.getContent() == null || request.getContent().trim().isEmpty(), "编辑内容不能为空");
+        Message update = new Message();
+        update.setId(message.getId());
+        update.setContent(request.getContent());
+        update.setUpdateTime(new Date());
+        messageDao.updateById(update);
     }
 
     @Override

@@ -3,7 +3,7 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 5vh 0;
+  padding: 0 0 32px;
 
   .video-play {
     position: absolute;
@@ -52,19 +52,16 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  width: 88vw;
-  max-width: 1400px;
-  height: 88vh;
+  width: min(1568px, calc(100vw - 240px));
+  min-width: 1080px;
+  height: calc(100vh - 32px);
   margin: 0 auto;
-  color: var(--font-main);
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  color: #19243a;
+  background: #fff;
+  border: 1px solid #dfe8f2;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 28px 80px rgba(26, 42, 71, 0.12);
   overflow: hidden;
-  transition: all var(--transition-base);
 }
 
 .footer {
@@ -74,11 +71,11 @@
   width: 100%;
   padding: 10px;
   font-size: 12px;
-  color: var(--font-light);
+  color: #9aa8ba;
   text-align: center;
 
   a {
-    color: var(--font-light);
+    color: #9aa8ba;
     transition: color var(--transition-fast);
 
     &:hover {
@@ -87,6 +84,21 @@
   }
 }
 
+/* 平板：768px - 1024px —— 保持横向三栏，但取消 min-width 防止横向滚动 */
+@media only screen and (max-width: 1024px) {
+  .home {
+    padding: 0;
+  }
+
+  .wrapper {
+    width: 100%;
+    min-width: 0;
+    height: 100vh;
+    border-radius: 0;
+  }
+}
+
+/* 手机：< 768px —— 纵向堆叠 */
 @media only screen and (max-width: 768px) {
   .home {
     padding: 0;
@@ -94,10 +106,10 @@
 
   .wrapper {
     flex-direction: column;
+    min-width: 0;
     width: 100%;
     height: 100%;
     border-radius: 0;
-    backdrop-filter: none;
   }
 
   .footer {

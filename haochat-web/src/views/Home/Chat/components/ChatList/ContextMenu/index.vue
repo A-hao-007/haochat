@@ -33,9 +33,10 @@ const isCurrentUser = computed(() => props.msg?.fromUser.uid === userInfo.uid)
 const isAdmin = computed(() => userInfo?.power === PowerEnum.ADMIN)
 // 撤回
 const onRecall = async () => {
-  const { id } = props.msg.message
+  const { id, roomId } = props.msg.message
   if (id) {
-    await apis.recallMsg({ roomId: 1, msgId: id }).send()
+    // 修复：原来硬编码 roomId: 1（全员群时代的遗留），撤回请求必须带消息真实所属房间
+    await apis.recallMsg({ roomId, msgId: id }).send()
     chatStore.updateRecallStatus({ msgId: id })
   }
 }

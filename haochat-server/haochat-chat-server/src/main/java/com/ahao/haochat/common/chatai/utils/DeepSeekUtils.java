@@ -23,6 +23,9 @@ public class DeepSeekUtils {
     private int timeout = 60;
     private int maxTokens = 2048;
     private List<ChatGPTMsg> messages;
+    // Agent function-calling 用：原始 message 列表（含 tool 角色）与工具定义
+    private List<Map<String, Object>> rawMessages;
+    private List<Map<String, Object>> tools;
 
     private DeepSeekUtils(String key, String url) {
         this.url = url;
@@ -40,6 +43,42 @@ public class DeepSeekUtils {
     public DeepSeekUtils timeout(int timeout) { this.timeout = timeout; return this; }
     public DeepSeekUtils maxTokens(int maxTokens) { this.maxTokens = maxTokens; return this; }
     public DeepSeekUtils message(List<ChatGPTMsg> messages) { this.messages = messages; return this; }
+    public DeepSeekUtils rawMessages(List<Map<String, Object>> rawMessages) { this.rawMessages = rawMessages; return this; }
+    public DeepSeekUtils tools(List<Map<String, Object>> tools) { this.tools = tools; return this; }
+
+    /**
+     * Agent function-calling：发送对话（可带 tools），返回 choices[0].message 节点（可能含 tool_calls）。
+     */
+    @SneakyThrows
+    public JsonNode completion() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("messages", rawMessages != null ? rawMessages : messages);
+        body.put("max_tokens", maxTokens);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(timeout, TimeUnit.SECONDS)
+                .readTimeout(timeout, TimeUnit.SECONDS)
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .headers(Headers.of(headers))
+                .post(RequestBody.create(MAPPER.writeValueAsString(body), MediaType.parse("application/json")))
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) {
+                log.warn("DeepSeek completion error: {} {}", response.code(), response.message());
+                return null;
+            }
+            JsonNode root = MAPPER.readTree(response.body().string());
+            return root.path("choices").get(0).path("message");
+        } catch (IOException e) {
+            log.warn("DeepSeek completion failed: {}", e.getMessage());
+            return null;
+        }
+    }
 
     @SneakyThrows
     public String sendAndGet() {

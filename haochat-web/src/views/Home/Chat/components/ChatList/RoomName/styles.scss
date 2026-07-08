@@ -2,16 +2,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 50px;
-  padding: 0 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
+  height: 58px;
+  padding: 0 24px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4ebf3;
   flex-shrink: 0;
 
   .name {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--font-main);
+    font-size: 14px;
+    font-weight: 700;
+    color: #718096;
   }
 
   .room-actions {
@@ -23,22 +23,22 @@
   .action-btn {
     font-size: 13px;
     cursor: pointer;
-    color: var(--font-light);
+    color: #8a98ab;
     padding: 4px 8px;
     border-radius: var(--radius-sm);
     transition: all var(--transition-fast);
 
     &:hover {
-      color: var(--color-primary);
-      background-color: var(--bg-hover);
+      color: #2f66e8;
+      background-color: #edf4ff;
     }
   }
 }
 
 // 搜索面板
 .search-panel {
-  border-bottom: 1px solid var(--border-light);
-  background: var(--bg-secondary);
+  border-bottom: 1px solid #e4ebf3;
+  background: #fff;
   flex-shrink: 0;
 
   .search-input-wrapper {
@@ -48,7 +48,7 @@
     padding: 8px 12px;
 
     .search-icon {
-      color: var(--font-light);
+      color: #9aa8bb;
       flex-shrink: 0;
     }
 
@@ -58,23 +58,23 @@
       outline: none;
       background: transparent;
       font-size: 14px;
-      color: var(--font-main);
+      color: #27364b;
 
       &::placeholder {
-        color: var(--font-placeholder);
+        color: #a7b2c2;
       }
     }
 
     .search-close {
-      color: var(--font-light);
+      color: #9aa8bb;
       cursor: pointer;
       padding: 2px;
       border-radius: 50%;
       transition: all var(--transition-fast);
 
       &:hover {
-        color: var(--font-main);
-        background: var(--bg-hover);
+        color: #27364b;
+        background: #f3f7fd;
       }
     }
   }
@@ -95,7 +95,7 @@
     transition: background var(--transition-fast);
 
     &:hover {
-      background: var(--bg-hover);
+      background: #f3f7fd;
     }
 
     .result-user {
@@ -105,7 +105,7 @@
     }
 
     .result-text {
-      color: var(--font-secondary);
+      color: #66758d;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -116,6 +116,6 @@
     padding: 24px 16px;
     text-align: center;
     font-size: 13px;
-    color: var(--font-light);
+    color: #9aa8bb;
   }
 }

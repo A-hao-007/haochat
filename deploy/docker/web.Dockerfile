@@ -1,9 +1,9 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /workspace
 RUN corepack enable
 COPY haochat-web/package.json haochat-web/pnpm-lock.yaml haochat-web/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY haochat-web/ ./
 ARG VITE_API_PREFIX=
 ARG VITE_WS_URL=

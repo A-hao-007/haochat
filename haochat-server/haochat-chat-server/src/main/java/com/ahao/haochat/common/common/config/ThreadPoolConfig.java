@@ -42,12 +42,17 @@ public class ThreadPoolConfig implements AsyncConfigurer, SecureInvokeConfigurer
         return haochatExecutor();
     }
 
+    // 以下线程池大小原先是按多核大流量场景配置的（10/16/10常驻线程），在2核2G的小容器上
+    // 属于过度配置：线程数远超CPU核数不会提升吞吐，只会增加上下文切换开销和线程栈内存占用。
+    // 这几个池子处理的都是I/O密集型任务（DB/Redis/WS写），核心数不需要跟核数硬挂钩，
+    // 但也没必要开太多——配合队列容量吸收突发即可，缩小后仍保留原有的队列/拒绝策略语义。
+
     @Bean(HAOCHAT_EXECUTOR)
     @Primary
     public ThreadPoolTaskExecutor haochatExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(10);
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(6);
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("haochat-executor-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());//满了调用线程执行，认为重要任务
@@ -59,8 +64,8 @@ public class ThreadPoolConfig implements AsyncConfigurer, SecureInvokeConfigurer
     @Bean(WS_EXECUTOR)
     public ThreadPoolTaskExecutor websocketExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(16);
-        executor.setMaxPoolSize(16);
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
         executor.setQueueCapacity(1000);//支持同时推送1000人
         executor.setThreadNamePrefix("websocket-executor-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());//满了直接丢弃，默认为不重要消息推送
@@ -72,8 +77,8 @@ public class ThreadPoolConfig implements AsyncConfigurer, SecureInvokeConfigurer
     @Bean(AICHAT_EXECUTOR)
     public ThreadPoolTaskExecutor chatAiExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
-        executor.setMaxPoolSize(10);
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
         executor.setQueueCapacity(15);
         executor.setThreadNamePrefix("aichat-executor-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());//满了直接丢弃，默认为不重要消息推送

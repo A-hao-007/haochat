@@ -66,7 +66,7 @@ const clearSearch = () => {
 <template>
   <div class="room-name">
     <span class="name">{{ chatStore.currentSessionInfo?.name }}</span>
-    <div class="room-actions">
+    <div v-if="chatStore.currentSessionInfo" class="room-actions">
       <el-tooltip content="搜索消息" effect="dark">
         <span class="action-btn" @click="showSearch = !showSearch">
           <IEpSearch :size="16" />

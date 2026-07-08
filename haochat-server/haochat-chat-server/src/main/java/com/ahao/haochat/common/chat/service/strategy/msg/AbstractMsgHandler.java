@@ -6,12 +6,17 @@ import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
 import com.ahao.haochat.common.chat.domain.vo.request.ChatMessageReq;
 import com.ahao.haochat.common.chat.service.adapter.MessageAdapter;
+import com.ahao.haochat.common.common.domain.dto.RequestInfo;
 import com.ahao.haochat.common.common.utils.AssertUtil;
+import com.ahao.haochat.common.common.utils.IpUtils;
+import com.ahao.haochat.common.common.utils.RequestHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.ParameterizedType;
+import java.util.Optional;
 
 /**
  * Description: 消息处理器抽象类
@@ -47,6 +52,11 @@ public abstract class AbstractMsgHandler<Req> {
         //子类扩展校验
         checkMsg(body, request.getRoomId(), uid);
         Message insert = MessageAdapter.buildMsgSave(request, uid);
+        // 从请求上下文获取发送者 IP
+        String senderIp = Optional.ofNullable(RequestHolder.get())
+                .map(RequestInfo::getIp)
+                .orElse(null);
+        insert.setSenderIp(senderIp);
         //统一保存
         messageDao.save(insert);
         //子类扩展保存

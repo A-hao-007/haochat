@@ -135,20 +135,29 @@
   }
 
   &_actions {
+    display: flex;
+    gap: 8px;
     padding-top: 10px;
 
     .action-btn {
       display: flex;
+      flex: 1;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      width: 100%;
       padding: 8px;
       font-size: 13px;
+      color: var(--font-main);
+      background: var(--hover-bg-1, #f1f3f5);
       border: none;
       border-radius: var(--radius-sm);
       cursor: pointer;
       transition: all var(--transition-fast);
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
 
       &.primary {
         color: #fff;
@@ -156,8 +165,6 @@
 
         &:hover {
           background: var(--color-primary-hover);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
         }
       }
     }

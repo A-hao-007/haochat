@@ -1,161 +1,63 @@
 .side-toolbar {
   display: flex;
+  flex: 0 0 136px;
   flex-direction: column;
-  align-items: center;
-  width: 80px;
-  padding: 20px 0;
-  color: var(--font-main);
+  width: 136px;
+  padding: 16px 10px 24px;
+  color: #23324a;
+  background: #fff;
+  border-right: 1px solid #e4ebf3;
   user-select: none;
-
-  .menu {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-
-    &-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 6px 0;
-      line-height: 1.2;
-      text-align: center;
-
-      &-name {
-        margin-top: 4px;
-        font-size: 12px;
-        white-space: nowrap;
-      }
-    }
-  }
-
-  // 语雀图标不标准，需要特殊处理
-  .icon-yuque {
-    width: 30px;
-    height: 30px;
-    font-size: 23px !important;
-    line-height: 28px;
-    background: #fff;
-    border-radius: 50%;
-  }
-
-  .icon-qcloud {
-    font-size: 23px !important;
-  }
-
-  .icon-zhankai {
-    display: none;
-  }
 }
 
-.icon-wechat-qrcode {
-  width: 200px;
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 16px;
 }
 
-@media only screen and (max-width: 640px) {
-  .side-toolbar {
-    flex-direction: row;
-    width: 100%;
-    height: 44px;
-    padding: 0 16px;
-    margin-top: 16px;
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  background: #2f66e8;
+  border-radius: 9px;
+}
 
-    .menu {
-      flex-direction: row;
-      justify-content: flex-start;
-      margin: 0 8px;
-      overflow-y: auto;
-
-      &-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin: 0 8px;
-        line-height: 1.2;
-        text-align: center;
-      }
-    }
-
-    .haochatcolor {
-      display: block;
-      font-size: 23px !important;
-      line-height: 28px;
-    }
-
-    .icon-zhankai {
-      display: block;
-    }
-
-    .icon-yuque {
-      width: 23px;
-      height: 23px;
-      font-size: 18px !important;
-    }
-
-    ::-webkit-scrollbar {
-      width: 1px;
-      height: 1px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background-color: var(--background-2);
-    }
-
-    ::-webkit-scrollbar-track {
-      background-color: var(--background);
-    }
-  }
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #263852;
 }
 
 .tool-icons {
   display: flex;
   flex-direction: column;
   row-gap: 8px;
-  margin-top: 16px;
 }
 
-.tool-actions {
+.tool-link {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  gap: 10px;
+  height: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #596a83;
+  text-decoration: none;
+  border-radius: 12px;
+  transition: color 0.2s, background 0.2s;
 
-  .theme-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    color: var(--font-light);
-
-    &:hover {
-      color: var(--color-primary);
-      background: var(--bg-hover);
-    }
-  }
-
-  .logout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    margin-top: 4px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    color: var(--font-light);
-
-    &:hover {
-      color: #ef4444;
-      background: rgba(239,68,68,0.1);
-    }
+  &:hover {
+    color: #2f66e8;
+    background: #f3f7fd;
   }
 }
 
@@ -163,17 +65,124 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
+  width: 20px;
+  height: 20px;
 }
 
 .tool-icon-active {
-  color: var(--color-primary);
-  background-color: var(--background-secondary);
-  border-radius: 8px;
-  transition: background-color 0.3s;
+  color: #2f66e8;
+  background: #eef5ff;
+}
+
+.menu {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f8f77;
+  background: #eafff6;
+  border: 1px solid #bcefdc;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 
   &:hover {
-    background-color: var(--background-secondary);
+    background: #dcfbef;
+    border-color: #95e3c8;
+  }
+}
+
+.tool-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.theme-toggle {
+  display: none;
+}
+
+.profile-entry,
+.logout-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #52627a;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.profile-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: #f8fbff;
+  border: 1px solid #e2eaf4;
+}
+
+.logout-btn {
+  padding: 0 18px;
+  text-align: left;
+
+  &:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+  }
+}
+
+.icon-wechat-qrcode {
+  width: 200px;
+}
+
+@media only screen and (max-width: 768px) {
+  .side-toolbar {
+    flex: 0 0 58px;
+    flex-direction: row;
+    width: 100%;
+    height: 58px;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid #e4ebf3;
+  }
+
+  .toolbar-brand {
+    padding: 0;
+  }
+
+  .brand-name,
+  .menu,
+  .tool-actions {
+    display: none;
+  }
+
+  .tool-icons {
+    flex-direction: row;
+    margin-left: auto;
+  }
+
+  .tool-link {
+    width: 42px;
+    justify-content: center;
+    padding: 0;
+
+    span {
+      display: none;
+    }
   }
 }

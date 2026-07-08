@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted, onMounted, nextTick } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Edit } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 import { useGroupStore } from '@/stores/group'
 import { useGlobalStore } from '@/stores/global'
 import { useCachedStore } from '@/stores/cached'
+import type { BaseUserItem } from '@/stores/cached'
 import { RoleEnum } from '@/enums'
 import UserItem from './UserItem/index.vue'
 
@@ -14,6 +16,23 @@ const globalStore = useGlobalStore()
 const cachedStore = useCachedStore()
 const groupUserList = computed(() => groupStore.userList)
 const statistic = computed(() => groupStore.countInfo)
+
+// 我在群里的昵称
+const editingNickname = ref(false)
+const nicknameDraft = ref('')
+const startEditNickname = () => {
+  nicknameDraft.value = statistic.value.nickname || ''
+  editingNickname.value = true
+}
+const saveNickname = async () => {
+  try {
+    await groupStore.updateNickname(nicknameDraft.value.trim())
+    editingNickname.value = false
+    ElMessage.success('群昵称已更新')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存失败')
+  }
+}
 
 onMounted(() => {
   let observer: IntersectionObserver
@@ -44,7 +63,7 @@ const onAddGroupMember = () => {
   globalStore.createGroupModalInfo.isInvite = true
   // 禁用已经邀请的人
   globalStore.createGroupModalInfo.selectedUid = cachedStore.currentAtUsersList.map(
-    (item) => item.uid,
+    (item: BaseUserItem) => item.uid,
   )
 }
 </script>
@@ -68,6 +87,18 @@ const onAddGroupMember = () => {
           size="small"
           @click="onAddGroupMember"
         />
+      </div>
+      <!-- 我在群里的昵称 -->
+      <div v-login-show class="my-nickname-row">
+        <template v-if="!editingNickname">
+          <span class="my-nickname-label">我的群昵称：{{ statistic.nickname || '未设置' }}</span>
+          <el-icon class="my-nickname-edit" :size="13" @click="startEditNickname"><Edit /></el-icon>
+        </template>
+        <template v-else>
+          <el-input v-model="nicknameDraft" size="small" maxlength="20" placeholder="设置群昵称" @keyup.enter="saveNickname" />
+          <el-button size="small" type="primary" @click="saveNickname">保存</el-button>
+          <el-button size="small" @click="editingNickname = false">取消</el-button>
+        </template>
       </div>
       <TransitionGroup
         v-show="groupUserList?.length"

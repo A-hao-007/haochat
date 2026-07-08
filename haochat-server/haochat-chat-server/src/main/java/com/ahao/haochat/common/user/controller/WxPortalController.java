@@ -11,7 +11,6 @@ import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlOutMessage;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.view.RedirectView;
 
 /**
  * Description: 微信api交互接口
@@ -48,18 +47,35 @@ public class WxPortalController {
         return "非法请求";
     }
 
-    @GetMapping("/callBack")
-    public RedirectView callBack(@RequestParam String code) {
+    /** 授权成功/失败的提示页（授权在微信内置浏览器里完成，登录态是推给网页端的，这里只需告知结果） */
+    private static final String CALLBACK_OK_HTML = "<!DOCTYPE html><html lang=\"zh\"><head><meta charset=\"utf-8\">"
+            + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>登录成功</title></head>"
+            + "<body style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:90vh;"
+            + "margin:0;font-family:-apple-system,sans-serif;background:#f7faff\">"
+            + "<div style=\"font-size:56px\">&#9989;</div>"
+            + "<h2 style=\"margin:12px 0 6px;color:#12213b\">登录成功</h2>"
+            + "<p style=\"margin:0;color:#7b8ca6;font-size:15px\">请返回浏览器继续使用 HaoChat，本页面可关闭</p>"
+            + "</body></html>";
+    private static final String CALLBACK_FAIL_HTML = "<!DOCTYPE html><html lang=\"zh\"><head><meta charset=\"utf-8\">"
+            + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>登录失败</title></head>"
+            + "<body style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:90vh;"
+            + "margin:0;font-family:-apple-system,sans-serif;background:#f7faff\">"
+            + "<div style=\"font-size:56px\">&#10060;</div>"
+            + "<h2 style=\"margin:12px 0 6px;color:#12213b\">授权失败</h2>"
+            + "<p style=\"margin:0;color:#7b8ca6;font-size:15px\">请回到网页重新扫码试试</p>"
+            + "</body></html>";
+
+    @GetMapping(value = "/callBack", produces = "text/html;charset=utf-8")
+    public String callBack(@RequestParam String code) {
         try {
             WxOAuth2AccessToken accessToken = wxService.getOAuth2Service().getAccessToken(code);
             WxOAuth2UserInfo userInfo = wxService.getOAuth2Service().getUserInfo(accessToken, "zh_CN");
             wxMsgService.authorize(userInfo);
+            return CALLBACK_OK_HTML;
         } catch (Exception e) {
             log.error("callBack error", e);
+            return CALLBACK_FAIL_HTML;
         }
-        RedirectView redirectView = new RedirectView();
-        redirectView.setUrl("https://mp.weixin.qq.com/s/m1SRsBG96kLJW5mPe4AVGA");
-        return redirectView;
     }
 
     @PostMapping(produces = "application/xml; charset=UTF-8")

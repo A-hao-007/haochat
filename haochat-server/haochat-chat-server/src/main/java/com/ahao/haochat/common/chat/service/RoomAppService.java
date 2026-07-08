@@ -31,7 +31,7 @@ public interface RoomAppService {
 
     CursorPageBaseResp<ChatMemberResp> getMemberPage(MemberReq request);
 
-    List<ChatMemberListResp> getMemberList(ChatMessageMemberReq request);
+    List<ChatMemberListResp> getMemberList(Long uid, ChatMessageMemberReq request);
 
     void delMember(Long uid, MemberDelReq request);
 
@@ -46,4 +46,16 @@ public interface RoomAppService {
     void pinContact(Long uid, Long roomId, Boolean pinned);
     void muteContact(Long uid, Long roomId, Boolean muted);
     void deleteContact(Long uid, Long roomId);
+
+    /** 更新群公告（群主/管理员） */
+    void updateNotice(Long uid, Long roomId, String notice);
+
+    /** 标记当前用户已读最新群公告 */
+    void markNoticeRead(Long uid, Long roomId);
+
+    /** 更新我在群里的昵称 */
+    void updateNickname(Long uid, Long roomId, String nickname);
+
+    /** 我的群组列表（创建的+加入的） */
+    List<ChatRoomResp> getMyGroupList(Long uid);
 }

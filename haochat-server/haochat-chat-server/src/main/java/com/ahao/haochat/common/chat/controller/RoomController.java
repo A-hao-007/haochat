@@ -8,7 +8,9 @@ import com.ahao.haochat.common.chat.domain.vo.request.member.MemberAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberDelReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberExitReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberReq;
+import com.ahao.haochat.common.chat.domain.vo.request.member.TransferLordReq;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatMemberListResp;
+import com.ahao.haochat.common.chat.domain.vo.response.ChatRoomResp;
 import com.ahao.haochat.common.chat.domain.vo.response.MemberResp;
 import com.ahao.haochat.common.chat.service.IGroupMemberService;
 import com.ahao.haochat.common.chat.service.RoomAppService;
@@ -59,9 +61,10 @@ public class RoomController {
     }
 
     @GetMapping("/group/member/list")
-    @ApiOperation("房间内的所有群成员列表-@专用")
+    @ApiOperation("房间内可@的成员列表（群成员+AI助手，单聊则为对方）")
     public ApiResult<List<ChatMemberListResp>> getMemberList(@Valid ChatMessageMemberReq request) {
-        return ApiResult.success(roomService.getMemberList(request));
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(roomService.getMemberList(uid, request));
     }
 
     @DeleteMapping("/group/member")
@@ -110,5 +113,44 @@ public class RoomController {
         Long uid = RequestHolder.get().getUid();
         groupMemberService.revokeAdmin(uid, request);
         return ApiResult.success();
+    }
+
+    @PutMapping("/group/lord")
+    @ApiOperation("转让群主")
+    public ApiResult<Void> transferLord(@Valid @RequestBody TransferLordReq request) {
+        Long uid = RequestHolder.get().getUid();
+        groupMemberService.transferLord(uid, request);
+        return ApiResult.success();
+    }
+
+    @PutMapping("/group/notice")
+    @ApiOperation("更新群公告")
+    public ApiResult<Void> updateNotice(@Valid @RequestBody GroupNoticeReq request) {
+        Long uid = RequestHolder.get().getUid();
+        roomService.updateNotice(uid, request.getRoomId(), request.getNotice());
+        return ApiResult.success();
+    }
+
+    @PutMapping("/group/notice/read")
+    @ApiOperation("标记已读最新群公告")
+    public ApiResult<Void> markNoticeRead(@Valid @RequestBody GroupNoticeReadReq request) {
+        Long uid = RequestHolder.get().getUid();
+        roomService.markNoticeRead(uid, request.getRoomId());
+        return ApiResult.success();
+    }
+
+    @PutMapping("/group/nickname")
+    @ApiOperation("更新我在群里的昵称")
+    public ApiResult<Void> updateNickname(@Valid @RequestBody GroupNicknameReq request) {
+        Long uid = RequestHolder.get().getUid();
+        roomService.updateNickname(uid, request.getRoomId(), request.getNickname());
+        return ApiResult.success();
+    }
+
+    @GetMapping("/group/my-list")
+    @ApiOperation("我的群组列表（创建的+加入的）")
+    public ApiResult<List<ChatRoomResp>> myGroupList() {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(roomService.getMyGroupList(uid));
     }
 }

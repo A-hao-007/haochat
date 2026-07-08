@@ -12,6 +12,8 @@ import com.ahao.haochat.common.chat.domain.vo.response.ChatMessageResp;
 import com.ahao.haochat.common.chat.service.strategy.msg.AbstractMsgHandler;
 import com.ahao.haochat.common.chat.service.strategy.msg.MsgHandlerFactory;
 import com.ahao.haochat.common.common.domain.enums.YesOrNoEnum;
+import com.ahao.haochat.common.common.utils.IpLocationUtils;
+import com.ahao.haochat.common.chatai.handler.ChatAIHandlerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,7 +41,7 @@ public class MessageAdapter {
         Map<Long, List<MessageMark>> markMap = msgMark.stream().collect(Collectors.groupingBy(MessageMark::getMsgId));
         return messages.stream().map(a -> {
             ChatMessageResp resp = new ChatMessageResp();
-            resp.setFromUser(buildFromUser(a.getFromUid()));
+            resp.setFromUser(buildFromUser(a.getFromUid(), a.getSenderIp()));
             resp.setMessage(buildMessage(a, markMap.getOrDefault(a.getId(), new ArrayList<>()), receiveUid));
             return resp;
         })
@@ -72,9 +74,19 @@ public class MessageAdapter {
         return mark;
     }
 
-    private static ChatMessageResp.UserInfo buildFromUser(Long fromUid) {
+    private static ChatMessageResp.UserInfo buildFromUser(Long fromUid, String senderIp) {
         ChatMessageResp.UserInfo userInfo = new ChatMessageResp.UserInfo();
         userInfo.setUid(fromUid);
+        // [AI-CONTEXT] 是否为AI助手消息：由已注册的AI uid名单判定，无需新增消息表字段
+        boolean isBot = ChatAIHandlerFactory.getAllAIUserIds().contains(fromUid);
+        userInfo.setIsBot(isBot);
+        if (isBot) {
+            userInfo.setSenderIp(null);
+            userInfo.setSenderLocation(null);
+        } else {
+            userInfo.setSenderIp(senderIp);
+            userInfo.setSenderLocation(IpLocationUtils.resolve(senderIp));
+        }
         return userInfo;
     }
 

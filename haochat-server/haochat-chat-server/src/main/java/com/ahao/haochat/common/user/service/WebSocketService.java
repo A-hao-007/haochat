@@ -63,4 +63,14 @@ public interface WebSocketService {
 
     void sendToUid(WSBaseResp<?> wsBaseResp, Long uid);
 
+    /**
+     * 同步发送（不经过线程池），保证同一批调用按调用顺序真正发起 writeAndFlush。
+     * sendToUid() 内部对每次推送都单独 execute() 到线程池，线程池不保证任务执行顺序——
+     * 低频通知场景下无害，但高频密集推送（如 AI 流式回复片段）必须用这个方法，否则会乱序到达客户端。
+     *
+     * @param wsBaseResp 发送的消息体
+     * @param uid        目标用户
+     */
+    void sendToUidSync(WSBaseResp<?> wsBaseResp, Long uid);
+
 }

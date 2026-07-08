@@ -26,14 +26,24 @@ import java.util.Optional;
 public class MinIOTemplate {
 
     /**
-     * MinIO 客户端
+     * MinIO 客户端（服务端内部访问，如 http://minio:9000）
      */
     MinioClient minioClient;
+
+    /**
+     * 预签名专用客户端（绑定公网端点，签名 Host 与浏览器访问一致）
+     */
+    MinioClient presignClient;
 
     /**
      * MinIO 配置类
      */
     OssProperties ossProperties;
+
+    /**
+     * 公网端点，用于拼接下载 URL
+     */
+    String publicEndpoint;
 
     /**
      * 查询所有存储桶
@@ -84,7 +94,9 @@ public class MinIOTemplate {
     @SneakyThrows
     public OssResp getPreSignedObjectUrl(OssReq req) {
         String absolutePath = req.isAutoPath() ? generateAutoPath(req) : req.getFilePath() + StrUtil.SLASH + req.getFileName();
-        String url = minioClient.getPresignedObjectUrl(
+        // 去掉前导斜杠：否则对象键变成 "/chat/..."，预签名 URL 出现 "//"，与下载 URL 的键不一致导致下载 404
+        absolutePath = StrUtil.removePrefix(absolutePath, StrUtil.SLASH);
+        String url = presignClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.PUT)
                         .bucket(ossProperties.getBucketName())
@@ -98,7 +110,8 @@ public class MinIOTemplate {
     }
 
     private String getDownloadUrl(String bucket, String pathFile) {
-        return ossProperties.getEndpoint() + StrUtil.SLASH + bucket + pathFile;
+        // pathFile 已去除前导斜杠，这里显式补一个斜杠，保证与预签名对象键完全一致
+        return publicEndpoint + StrUtil.SLASH + bucket + StrUtil.SLASH + StrUtil.removePrefix(pathFile, StrUtil.SLASH);
     }
 
     /**

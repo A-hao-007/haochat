@@ -32,4 +32,11 @@ public class TextMsgReq {
     @ApiModelProperty("艾特的uid")
     @Size(max = 10, message = "一次别艾特这么多人")
     private List<Long> atUidList;
+
+    /**
+     * 本条消息是否是AI助手发起的、需要用户确认才会真正执行的高风险操作提议。
+     * 仅供AI助手内部发消息时使用，{@link com.ahao.haochat.common.chat.service.strategy.msg.TextMsgHandler}
+     * 会校验发送者是否为已注册AI助手，非AI助手传入这个字段不会生效——避免普通用户伪造。
+     */
+    private Boolean needsConfirmation;
 }

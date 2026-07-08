@@ -24,4 +24,8 @@ public class GroupAddReq {
     @Size(min = 1, max = 50)
     @ApiModelProperty("邀请的uid")
     private List<Long> uidList;
+
+    @Size(max = 30)
+    @ApiModelProperty("群名称，不填则使用默认名称")
+    private String name;
 }

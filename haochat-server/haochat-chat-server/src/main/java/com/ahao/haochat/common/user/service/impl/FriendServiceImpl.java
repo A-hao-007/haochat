@@ -162,9 +162,23 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    @RedissonLock(key = "#uid")
     public void applyApprove(Long uid, FriendApproveReq request) {
+        // 先取申请记录，仅为解析"好友对"用于加锁；真正的业务校验在事务主体里重新做一遍。
+        UserApply userApply = userApplyDao.getById(request.getApplyId());
+        AssertUtil.isNotEmpty(userApply, "不存在申请记录");
+        AssertUtil.equal(userApply.getTargetId(), uid, "不存在申请记录");
+        // 锁"好友对"而不是单个 uid：A同意B、B同意A是两条不同的申请，若锁各自的 uid 则不互斥，
+        // 会并发建立重复好友关系。按有序 uid 对加锁，让同一对好友的审批串行化。
+        // 锁必须包在事务外（LockService 编程式锁 + 经代理调用事务主体），否则锁在事务提交前就释放了。
+        lockService.executeWithLock(friendPairKey(uid, userApply.getUid()), () -> {
+            ((FriendService) AopContext.currentProxy()).doApplyApprove(uid, request);
+            return null;
+        });
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void doApplyApprove(Long uid, FriendApproveReq request) {
         UserApply userApply = userApplyDao.getById(request.getApplyId());
         AssertUtil.isNotEmpty(userApply, "不存在申请记录");
         AssertUtil.equal(userApply.getTargetId(), uid, "不存在申请记录");
@@ -177,6 +191,13 @@ public class FriendServiceImpl implements FriendService {
         RoomFriend roomFriend = roomService.createFriendRoom(Arrays.asList(uid, userApply.getUid()));
         //发送一条同意消息。。我们已经是好友了，开始聊天吧
         chatService.sendMsg(MessageAdapter.buildAgreeMsg(roomFriend.getRoomId()), uid);
+    }
+
+    /** 好友对锁 key：两 uid 排序后拼接，保证 (A,B) 与 (B,A) 得到同一把锁 */
+    private String friendPairKey(Long uid1, Long uid2) {
+        long min = Math.min(uid1, uid2);
+        long max = Math.max(uid1, uid2);
+        return "friend_apply_pair_" + min + "_" + max;
     }
 
     /**

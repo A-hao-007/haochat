@@ -2,12 +2,13 @@ import { computed, reactive, ref } from 'vue'
 import apis from '@/services/apis'
 import { defineStore } from 'pinia'
 import { useGlobalStore } from '@/stores/global'
-import type { GroupDetailReq, UserItem } from '@/services/types'
+import type { GroupDetailReq, SessionItem, UserItem } from '@/services/types'
 import { pageSize, useChatStore } from './chat'
 import cloneDeep from 'lodash/cloneDeep'
 import { OnlineEnum, RoleEnum } from '@/enums'
 import { uniqueUserList } from '@/utils/unique'
 import { useCachedStore } from '@/stores/cached'
+import type { BaseUserItem } from '@/stores/cached'
 import { useUserStore } from '@/stores/user'
 
 const sorAction = (pre: UserItem, next: UserItem) => {
@@ -32,7 +33,7 @@ export const useGroupStore = defineStore('group', () => {
   // 消息列表
   const userList = ref<UserItem[]>([])
   const userListOptions = reactive({ isLast: false, loading: true, cursor: '' })
-  const currentRoomId = computed(() => globalStore.currentSession.roomId)
+  const currentRoomId = computed(() => globalStore.currentSession?.roomId)
   /**
    * 获取当前群主ID
    */
@@ -62,7 +63,7 @@ export const useGroupStore = defineStore('group', () => {
    */
   const memberList = computed(() => {
     const memberInfoList = cachedStore.filterUsersByUidList(userList.value.map((item) => item.uid))
-    return memberInfoList.map((member) => {
+    return memberInfoList.map((member: BaseUserItem) => {
       if (adminUidList.value.includes(member.uid)) {
         return {
           ...member,
@@ -87,6 +88,45 @@ export const useGroupStore = defineStore('group', () => {
 
   // 移动端控制显隐
   const showGroupList = ref(false)
+
+  // 我的群组列表（创建的+加入的）
+  const myGroupList = ref<SessionItem[]>([])
+  const myGroupListLoading = ref(false)
+  const getMyGroupList = async () => {
+    myGroupListLoading.value = true
+    try {
+      myGroupList.value = (await apis.myGroupList().send()) || []
+    } finally {
+      myGroupListLoading.value = false
+    }
+  }
+
+  // 更新群公告
+  const updateNotice = async (notice: string) => {
+    await apis.updateGroupNotice({ roomId: currentRoomId.value, notice }).send()
+    await getCountStatistic()
+  }
+
+  // 标记群公告已读
+  const readNotice = async () => {
+    if (countInfo.value.noticeReadByMe || !countInfo.value.notice) return
+    await apis.readGroupNotice({ roomId: currentRoomId.value }).send()
+    await getCountStatistic()
+  }
+
+  // 更新我在群里的昵称
+  const updateNickname = async (nickname: string) => {
+    await apis.updateGroupNickname({ roomId: currentRoomId.value, nickname }).send()
+    countInfo.value = { ...countInfo.value, nickname }
+  }
+
+  // 转让群主
+  const transferLord = async (targetUid: number) => {
+    await apis.transferLord({ roomId: currentRoomId.value, targetUid }).send()
+    // 刷新群成员角色
+    await getGroupUserList(true)
+    await getCountStatistic()
+  }
 
   // 获取群成员
   const getGroupUserList = async (refresh = false) => {
@@ -190,7 +230,9 @@ export const useGroupStore = defineStore('group', () => {
     chatStore.removeContact(currentRoomId.value)
 
     // 切换为第一个会话
-    globalStore.currentSession.roomId = chatStore.sessionList[0].roomId
+    if (chatStore.sessionList[0]) {
+      globalStore.currentSession.roomId = chatStore.sessionList[0].roomId
+    }
   }
 
   return {
@@ -207,6 +249,13 @@ export const useGroupStore = defineStore('group', () => {
     adminUidList,
     adminList,
     memberList,
+    myGroupList,
+    myGroupListLoading,
+    getMyGroupList,
+    updateNotice,
+    readNotice,
+    updateNickname,
+    transferLord,
     addAdmin,
     revokeAdmin,
     exitGroup,

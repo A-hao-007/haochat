@@ -2,6 +2,7 @@
 import { computed, toRef } from 'vue'
 import apis from '@/services/apis'
 import { ContextMenu, ContextMenuItem, type MenuOptions } from '@imengyu/vue3-context-menu'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useGlobalStore } from '@/stores/global'
 import { useGroupStore } from '@/stores/group'
@@ -45,6 +46,21 @@ const onRemoveMember = async () => {
   // 更新群成员列表
   groupStore.getGroupUserList(true)
 }
+
+// 转让群主
+const onTransferLord = async () => {
+  try {
+    await ElMessageBox.confirm('转让后你将变为管理员，确定转让群主吗？', '提示', {
+      confirmButtonText: '确定转让',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await groupStore.transferLord(props.uid)
+    ElMessage.success('群主已转让')
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error(e?.message || '转让失败')
+  }
+}
 </script>
 
 <template>
@@ -71,6 +87,17 @@ const onRemoveMember = async () => {
     >
       <template #icon>
         <Icon icon="yichu" :size="13" />
+      </template>
+    </ContextMenuItem>
+    <!-- 只有群主才能转让群主（不能转让给自己） -->
+    <ContextMenuItem
+      vLoginShow
+      v-if="statistic.role === RoleEnum.LORD && !isMe"
+      label="转让群主"
+      @click="onTransferLord"
+    >
+      <template #icon>
+        <span class="icon">👑</span>
       </template>
     </ContextMenuItem>
   </ContextMenu>

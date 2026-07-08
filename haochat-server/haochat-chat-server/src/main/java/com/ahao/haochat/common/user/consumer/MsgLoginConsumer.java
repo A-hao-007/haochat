@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
  * Author: <a href="https://github.com/A-hao-007">abin</a>
  * Date: 2023-08-12
  */
-@RocketMQMessageListener(consumerGroup = MQConstant.LOGIN_MSG_GROUP, topic = MQConstant.LOGIN_MSG_TOPIC, messageModel = MessageModel.BROADCASTING)
+@RocketMQMessageListener(consumerGroup = MQConstant.LOGIN_MSG_GROUP, topic = MQConstant.LOGIN_MSG_TOPIC, messageModel = MessageModel.BROADCASTING,
+        consumeThreadNumber = 1, consumeThreadMax = 2)
 @Component
 public class MsgLoginConsumer implements RocketMQListener<LoginMessageDTO> {
     @Autowired

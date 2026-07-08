@@ -40,6 +40,11 @@
       user-select: none;
     }
 
+    .bot-tag {
+      font-size: 13px;
+      user-select: none;
+    }
+
     .send-time {
       display: inline-block;
       user-select: none;
@@ -59,6 +64,11 @@
         line-height: 22px;
         color: var(--font-main);
         word-break: break-word;
+        // 保留消息里的换行符：HTML 默认把 \n 折叠成空格，AI 的分点回复和用户的多行消息
+        // 都会被压成一团；pre-wrap 同时保留换行和自动软换行
+        white-space: pre-wrap;
+        user-select: text;
+        cursor: text;
         background-color: var(--bg-bubble-other);
         border-radius: 4px 16px 16px;
         box-shadow: var(--shadow-sm);
@@ -324,6 +334,40 @@
     }
   }
 
+  .streaming-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: currentColor;
+    animation: streaming-cursor-blink 1s step-start infinite;
+  }
+
+  @keyframes streaming-cursor-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .streaming-stop {
+    display: inline-block;
+    padding: 1px 8px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--font-light);
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid var(--border-base);
+    border-radius: 10px;
+    transition: color var(--transition-fast);
+
+    &:hover {
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+  }
+
   &-option {
     position: absolute;
 
@@ -360,6 +404,21 @@
       text-overflow: ellipsis;
       -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
+    }
+  }
+
+  &-confirm {
+    display: flex;
+    align-items: center;
+    column-gap: 8px;
+    width: fit-content;
+    margin-top: 6px;
+    margin-right: auto;
+
+    .confirm-done-tip {
+      font-size: 12px;
+      color: var(--font-light);
+      user-select: none;
     }
   }
 
@@ -436,6 +495,11 @@
   }
 }
 
+// AI助手消息气泡背景与普通消息区分
+.chat-item.is-bot .chat-item-content .text {
+  background-color: var(--background-2);
+}
+
 .right {
   flex-direction: row-reverse;
 
@@ -468,7 +532,8 @@
   }
 
   .extra,
-  .chat-item-reply {
+  .chat-item-reply,
+  .chat-item-confirm {
     margin-right: 0;
     margin-left: auto;
   }
@@ -562,4 +627,140 @@
   height: 14px; // 防抖动的核心，与send-time-block真实高度一致
   opacity: 0;
   transform: scale(0);
+}
+
+// AI 消息 markdown 内容样式（v-html 注入的元素，样式文件本身非 scoped 所以直接生效）
+.chat-item .text.text-markdown {
+  // markdown 的结构由块级元素表达，继承 pre-wrap 会把 HTML 标签间的换行渲染成多余空行
+  white-space: normal;
+
+  p {
+    margin: 0 0 6px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul,
+  ol {
+    margin: 4px 0 6px;
+    padding-left: 20px;
+  }
+
+  li {
+    margin: 2px 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 8px 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  h1 {
+    font-size: 17px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  code {
+    padding: 1px 5px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 13px;
+    background: var(--background-2);
+    border-radius: 4px;
+  }
+
+  pre {
+    padding: 8px 10px;
+    margin: 6px 0;
+    overflow-x: auto;
+    background: var(--background-2);
+    border-radius: 6px;
+
+    code {
+      padding: 0;
+      background: none;
+    }
+  }
+
+  blockquote {
+    padding-left: 8px;
+    margin: 6px 0;
+    color: var(--font-light);
+    border-left: 3px solid var(--border-base);
+  }
+
+  table {
+    margin: 6px 0;
+    font-size: 13px;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 4px 8px;
+      border: 1px solid var(--border-base);
+    }
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+
+  hr {
+    margin: 8px 0;
+    border: none;
+    border-top: 1px solid var(--border-base);
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+}
+
+// 未读分割线
+.unread-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--font-light);
+  user-select: none;
+
+  &::before,
+  &::after {
+    flex: 1;
+    height: 1px;
+    content: '';
+    background: var(--border-base);
+  }
+
+  span {
+    padding: 0 12px;
+  }
+}
+
+// 搜索跳转后的定位高亮
+.chat-item.msg-flash {
+  animation: msg-flash-bg 1.6s ease-out;
+}
+
+@keyframes msg-flash-bg {
+  0%,
+  60% {
+    background: var(--hover-bg-1, rgba(47, 102, 232, 0.1));
+    border-radius: 8px;
+  }
+
+  100% {
+    background: transparent;
+  }
 }

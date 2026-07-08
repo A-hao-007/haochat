@@ -48,6 +48,12 @@ public class Message implements Serializable {
     private Long fromUid;
 
     /**
+     * 发送者IP地址
+     */
+    @TableField("sender_ip")
+    private String senderIp;
+
+    /**
      * 消息内容
      */
     @TableField("content")

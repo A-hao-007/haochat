@@ -5,19 +5,41 @@ import { useChatStore } from '@/stores/chat'
 import { useGroupStore } from '@/stores/group'
 import { useGlobalStore } from '@/stores/global'
 import { useEmojiStore } from '@/stores/emoji'
-import { WsResponseMessageType } from './wsType'
+import { WsResponseMessageType, WsRequestMsgType } from './wsType'
 import type {
   LoginSuccessResType,
   LoginInitResType,
   WsReqMsgContentType,
   OnStatusChangeType,
+  AgentStreamChunkType,
 } from './wsType'
 import type { MessageType, MarkItemType, RevokedMsgType } from '@/services/types'
-import { OnlineEnum, ChangeTypeEnum, RoomTypeEnum } from '@/enums'
+import { OnlineEnum, ChangeTypeEnum, RoomTypeEnum, MsgEnum } from '@/enums'
 import { computedToken } from '@/services/request'
 import { worker } from './initWorker'
 import shakeTitle from '@/utils/shakeTitle'
 import notify from '@/utils/notification'
+
+/** 通知文案：文本消息展示内容，其他类型展示占位文案 */
+function previewMsg(msg: MessageType): string {
+  const type = msg?.message?.type
+  switch (type) {
+    case MsgEnum.TEXT:
+      return msg?.message?.body?.content || '[新消息]'
+    case MsgEnum.IMAGE:
+      return '[图片]'
+    case MsgEnum.FILE:
+      return '[文件]'
+    case MsgEnum.VOICE:
+      return '[语音]'
+    case MsgEnum.VIDEO:
+      return '[视频]'
+    case MsgEnum.EMOJI:
+      return '[表情]'
+    default:
+      return '[新消息]'
+  }
+}
 
 /** 播放消息提示音 */
 function playMsgSound() {
@@ -47,6 +69,11 @@ class WS {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && !this.#connectReady) {
         this.initConnect()
+      }
+
+      // 重新可见时立即补发一次心跳，刷新在线状态（后台标签页定时器可能被节流）
+      if (!document.hidden && this.#connectReady) {
+        this.send({ type: WsRequestMsgType.HeartBeatDetection })
       }
 
       // 获得焦点停止消息闪烁
@@ -192,8 +219,24 @@ class WS {
       }
       // 收到消息
       case WsResponseMessageType.ReceiveMessage: {
-        chatStore.pushMsg(params.data as MessageType)
-        playMsgSound()
+        const msg = params.data as MessageType
+        chatStore.pushMsg(msg)
+        // 别人发来的消息才提醒（排除自己发的），且该会话未开启免打扰
+        const mineUid = userStore.userInfo?.uid
+        const isMuted = chatStore.getSession(msg.message.roomId)?.muted === 1
+        if (msg?.fromUser?.uid && msg.fromUser.uid !== mineUid && !isMuted) {
+          playMsgSound()
+          // 页面不可见时：标题闪烁 + 桌面通知，避免漏推
+          if (document.hidden) {
+            shakeTitle.start()
+            notify({
+              name: msg.fromUser.username || '新消息',
+              text: previewMsg(msg),
+              icon: msg.fromUser.avatar,
+              onClick: () => window.focus(),
+            })
+          }
+        }
         break
       }
       // 用户下线
@@ -272,6 +315,12 @@ class WS {
             // TODO 添加一条入群的消息
           }
         }
+        break
+      }
+      // AI流式回复片段：首个片段创建临时占位消息，后续片段原地追加，真实消息落库后的正常消息会自动替换掉占位消息
+      case WsResponseMessageType.AgentStreamChunk: {
+        const data = params.data as AgentStreamChunkType
+        chatStore.handleAgentStreamChunk(data)
         break
       }
       default: {

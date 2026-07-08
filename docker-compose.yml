@@ -1,0 +1,291 @@
+name: haochat
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: haochat-mysql
+    restart: unless-stopped
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./haochat-server/docs/haochat.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./haochat-server/docs/version/2023-06-04.sql:/docker-entrypoint-initdb.d/02-2023-06-04.sql:ro
+      - ./haochat-server/docs/version/2023-06-17.sql:/docker-entrypoint-initdb.d/03-2023-06-17.sql:ro
+      - ./haochat-server/docs/version/2023-07-01.sql:/docker-entrypoint-initdb.d/04-2023-07-01.sql:ro
+      - ./haochat-server/docs/version/2023-07-09.sql:/docker-entrypoint-initdb.d/05-2023-07-09.sql:ro
+      - ./haochat-server/docs/version/2023-07-17.sql:/docker-entrypoint-initdb.d/06-2023-07-17.sql:ro
+      - ./haochat-server/docs/version/2023-08-13.sql:/docker-entrypoint-initdb.d/07-2023-08-13.sql:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+      # 2核4G机型：缓冲池从64M(2G机型)提到256M，减少磁盘IO、提升缓存命中率
+      - --innodb-buffer-pool-size=256M
+      - --performance-schema=OFF
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: haochat-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    # 显式设置maxmemory：4G机型下仍要防止AOF重写/缓存增长把内存耗光挤压其他容器
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 192mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  minio:
+    image: minio/minio:latest
+    container_name: haochat-minio
+    restart: unless-stopped
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${SITE_ORIGIN}
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:${MINIO_API_PORT}/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: haochat-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      SITE_ORIGIN: ${SITE_ORIGIN}
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3 &&
+      mc alias set haochat http://minio:${MINIO_API_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} &&
+      mc mb haochat/${MINIO_BUCKET} --ignore-existing &&
+      mc anonymous set public haochat/${MINIO_BUCKET} &&
+      echo 'MinIO init complete'
+      "
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.1.4
+    container_name: haochat-rocketmq-namesrv
+    restart: unless-stopped
+    environment:
+      # 只维护路由表，实测常驻内存约25MB，堆没必要按JAVA_TOOL_OPTIONS(为backend准备的值)兜底到256m
+      # 关掉AlwaysPreTouch：镜像启动脚本默认开启它，会导致启动时就把整个堆预先提交/touch一遍，
+      # 在小容器限制下会让RSS一启动就顶到限制附近，实测已验证。2核4G机型下小幅上调堆上限留些余量
+      # 关掉UseContainerSupport：这台机器的cgroup v2布局下，JDK自带的容器内存探测(Container.metrics())
+      # 会抛NPE，导致任何用到它的类(比如broker的StoreUtil)静态初始化永久失败——堆已经用-Xms/-Xmx显式
+      # 指定了，不依赖容器感知自动计算，关掉它只是绕开这段有bug的探测代码，不影响实际内存限制
+      JAVA_OPT_EXT: -Xms96m -Xmx160m -XX:-AlwaysPreTouch -XX:-UseContainerSupport
+    command: sh mqnamesrv
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "NamesrvStartup"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.1.4
+    container_name: haochat-rocketmq-broker
+    restart: unless-stopped
+    depends_on:
+      - rocketmq-namesrv
+    volumes:
+      - rocketmq-store:/home/rocketmq/store
+      - rocketmq-logs:/home/rocketmq/logs
+      - ./deploy/rocketmq/broker.conf:/etc/rocketmq/broker.conf:ro
+    environment:
+      # 显式封顶堆+直接内存，避免启动脚本按宿主机内存自动算出的-Xmx952m之类的值
+      # 在负载突增时把容器实际占用顶过cgroup限制而被OOM杀死（JVM自身的-Xmx/-Xms以最后一次
+      # 出现的参数为准，追加在JAVA_OPT_EXT里可以覆盖启动脚本的自动计算值）。
+      # 同时关掉AlwaysPreTouch，原因同namesrv：实测它会让启动时RSS直接顶到cgroup限制附近
+      # 2核4G机型：整机内存翻倍，堆/直接内存/容器上限相应上调，给消息堆积和多消费者场景留余量
+      # 关掉UseContainerSupport：根因排查发现broker从未真正消费过任何消息(ConsumerOffset永远是0)，
+      # 实测remoting.log里每次处理pull请求都抛 NoClassDefFoundError: Could not initialize class
+      # org.apache.rocketmq.store.StoreUtil，深层原因是JDK的cgroup v2探测(Container.metrics())
+      # 在这台机器上抛NPE，导致StoreUtil静态初始化永久失败(Java语义:一次失败后这个类整个JVM生命周期
+      # 内都报废)。DefaultMessageStore.getMessage()每次处理pull请求都要用到这个类，所以broker启动后
+      # 就再也没有成功处理过一次pull请求——这也是为什么所有房间的last_msg_id/active_time从未被更新过。
+      JAVA_OPT_EXT: -Xms192m -Xmx320m -XX:MaxDirectMemorySize=128m -XX:-AlwaysPreTouch -XX:-UseContainerSupport
+    # Fix volume ownership (Docker volumes are root-owned, but rocketmq runs as uid 3000)
+    user: root
+    command: >
+      sh -c "
+      chown -R rocketmq:rocketmq /home/rocketmq/store /home/rocketmq/logs &&
+      exec su -c 'sh mqbroker -c /etc/rocketmq/broker.conf' rocketmq
+      "
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend.Dockerfile
+    container_name: haochat-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rocketmq-namesrv:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      # 2核4G机型：整机内存翻倍(2G→4G)，堆上限相应上调，减少GC压力、支撑更多并发连接
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      SPRING_MVC_PATHMATCH_MATCHING_STRATEGY: ant_path_matcher
+
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      OSS_ENABLED: "true"
+      MINIO_ENDPOINT: http://minio:9000
+      # 浏览器可访问的公网端点，用于预签名上传/下载 URL。
+      # 走主域名的 /haochat/* 路径前缀（经 Caddy 反代到 minio:9000），
+      # 无需为 minio 子域名单独配置 DNS / 证书。
+      MINIO_PUBLIC_ENDPOINT: ${SITE_ORIGIN}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      ROCKETMQ_NAME_SERVER: rocketmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: haochat-producer
+      ROCKETMQ_SEND_TIMEOUT: 3000
+
+      WX_MP_CALLBACK: ${WX_MP_CALLBACK}
+      WX_MP_APP_ID: ${WX_MP_APP_ID}
+      WX_MP_SECRET: ${WX_MP_SECRET}
+      WX_MP_TOKEN: ${WX_MP_TOKEN}
+      WX_MP_AES_KEY: ${WX_MP_AES_KEY}
+
+      DEEPSEEK_ENABLED: ${DEEPSEEK_ENABLED}
+      DEEPSEEK_KEY: ${DEEPSEEK_KEY}
+
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+
+      MCP_EXTERNAL_SERVERS: ${MCP_EXTERNAL_SERVERS}
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    deploy:
+      resources:
+        limits:
+          memory: 900M
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+      args:
+        VITE_API_PREFIX: ""
+        VITE_WS_URL: ""
+    container_name: haochat-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      SITE_ORIGIN: ${SITE_ORIGIN}
+      MINIO_DOMAIN: ${MINIO_DOMAIN}
+      MINIO_CONSOLE_DOMAIN: ${MINIO_CONSOLE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  caddy:
+    profiles:
+      - standalone-caddy
+    image: caddy:2-alpine
+    container_name: haochat-caddy
+    restart: unless-stopped
+    depends_on:
+      - minio
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      MINIO_DOMAIN: ${MINIO_DOMAIN}
+      MINIO_CONSOLE_DOMAIN: ${MINIO_CONSOLE_DOMAIN}
+    ports:
+      - "19000:80"
+      - "19001:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  mysql-data:
+    name: haochat_mysql-data
+  redis-data:
+    name: haochat_redis-data
+  minio-data:
+    name: haochat_minio-data
+  rocketmq-store:
+    name: haochat_rocketmq-store
+  rocketmq-logs:
+    name: haochat_rocketmq-logs
+  caddy-data:
+    name: haochat_caddy-data
+  caddy-config:
+    name: haochat_caddy-config

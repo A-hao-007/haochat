@@ -40,6 +40,20 @@ export type GroupDetailReq = {
   role: number
   /** 房间id */
   roomId: number
+  /** 群公告 */
+  notice?: string
+  /** 群公告发布者uid */
+  noticeUid?: number
+  /** 群公告发布时间（毫秒时间戳） */
+  noticeTime?: number
+  /** 群公告已读人数 */
+  noticeReadCount?: number
+  /** 群成员总数 */
+  noticeTotalCount?: number
+  /** 我是否已读最新公告 */
+  noticeReadByMe?: boolean
+  /** 我在群里的昵称 */
+  nickname?: string
 }
 
 export type CacheBadgeItem = {
@@ -96,6 +110,8 @@ export type UserItem = {
   roleId?: number
   /** uid */
   uid: number
+  /** 群内昵称（仅群聊场景，未设置则为空） */
+  nickname?: string
 }
 
 export type GroupStatisticType = {
@@ -142,6 +158,8 @@ export type UserInfoType = {
   badge?: string
   /** 权限 */
   power?: number
+  /** 绑定邮箱 */
+  email?: string
 }
 
 export type BadgeType = {
@@ -200,6 +218,10 @@ export type MessageType = {
   timeBlock?: string
   /** 是否加载中 */
   loading?: boolean
+  /** 是否是AI流式回复生成中的临时占位消息（内容会持续追加，收到真实消息后会被替换） */
+  streaming?: boolean
+  /** AI流式回复的流id，停止生成时传给后端 */
+  streamId?: string
 }
 
 /**
@@ -214,6 +236,12 @@ export type MsgUserType = {
   avatar: string
   /** 归属地 */
   locPlace: string
+  /** 发送者IP */
+  senderIp?: string
+  /** 发送者IP属地（解析后，如"浙江 杭州"） */
+  senderLocation?: string
+  /** 是否为AI助手消息 */
+  isBot?: boolean
   /** 徽章 */
   badge?: {
     /** 徽章地址 */
@@ -282,6 +310,8 @@ export type TextBody = {
       image: string
     }
   >
+  /** 是否是AI助手发起的需要用户确认的高风险操作提议 */
+  needsConfirmation?: boolean
 }
 /** 表情消息 */
 export type EmojiBody = {
@@ -398,6 +428,12 @@ export type SessionItem = {
   type: RoomTypeEnum
   /** 未读数 */
   unreadCount: number
+  /** 仅"我的群组"列表接口返回：是否为该群群主 */
+  isLord?: boolean
+  /** 是否置顶 0否 1是 */
+  pinned?: number
+  /** 是否免打扰 0否 1是 */
+  muted?: number
 }
 
 /** 消息已读未读数列表项 */

@@ -23,17 +23,38 @@ import urls from './urls'
 
 const getRequest = <T>(url: string, config?: any) =>
   alovaIns.Get<T>(url, { ...config, localCache: 0 })
-const postRequest = <T>(url: string, params?: any) => alovaIns.Post<T, unknown>(url, params)
-const putRequest = <T>(url: string, params?: any) => alovaIns.Put<T, unknown>(url, params)
-const deleteRequest = <T>(url: string, params?: any) => alovaIns.Delete<T, unknown>(url, params)
+const postRequest = <T>(url: string, params?: any, config?: any) =>
+  alovaIns.Post<T, unknown>(url, params, config)
+const putRequest = <T>(url: string, params?: any, config?: any) =>
+  alovaIns.Put<T, unknown>(url, params, config)
+const deleteRequest = <T>(url: string, params?: any, config?: any) =>
+  alovaIns.Delete<T, unknown>(url, params, config)
 
 export default {
   /** 登录 */
   login: (params: { username: string; password: string }) =>
     postRequest<{ token: string; uid: number; name: string; avatar: string }>(urls.login, params),
   /** 注册 */
-  register: (params: { username: string; name: string; password: string }) =>
+  register: (params: { username: string; name: string; password: string; email: string; emailCode: string }) =>
     postRequest<{ uid: number; username: string; name: string }>(urls.register, params),
+  /** 注册-发送邮箱验证码 */
+  registerEmailCode: (params: { email: string }) =>
+    postRequest<void>(urls.registerEmailCode, params),
+  /** 邮箱登录 */
+  emailLogin: (params: { email: string; password: string }) =>
+    postRequest<{ token: string; uid: number; name: string; avatar: string }>(urls.emailLogin, params),
+  loginEmailCode: (params: { email: string }) => postRequest<void>(urls.loginEmailCode, params),
+  emailCodeLogin: (params: { email: string; code: string }) =>
+    postRequest<{ token: string; uid: number; username: string; name: string; avatar: string }>(urls.emailCodeLogin, params),
+  /** 找回密码-发送验证码 */
+  forgotCode: (params: { email: string }) => postRequest<void>(urls.forgotCode, params),
+  /** 找回密码-重置 */
+  forgotReset: (params: { email: string; code: string; newPassword: string }) =>
+    postRequest<void>(urls.forgotReset, params),
+  /** 绑定邮箱-发送验证码 */
+  sendBindEmailCode: (params: { email: string }) => postRequest<void>(urls.bindEmailCode, params),
+  /** 绑定邮箱 */
+  bindEmail: (params: { email: string; code: string }) => putRequest<void>(urls.bindEmail, params),
   /** 搜索用户 */
   searchUser: (keyword: string) =>
     getRequest<{ uid: number; name: string; avatar: string }[]>(urls.searchUser, { params: { keyword } }),
@@ -45,6 +66,9 @@ export default {
   /** 房间内的所有群成员列表-@专用 */
   getAllUserBaseInfo: (params?: any) =>
     getRequest<Pick<CacheUserItem, 'avatar' | 'name' | 'uid'>[]>(urls.getAllUserBaseInfo, params),
+  /** 已启用的AI助手列表 */
+  getAiBots: () =>
+    getRequest<Pick<CacheUserItem, 'avatar' | 'name' | 'uid'>[]>(urls.getAiBots),
   /** 批量获取成员详细信息 */
   getUserInfoBatch: (users: CacheUserReq[]) =>
     postRequest<CacheUserItem[]>(urls.getUserInfoBatch, { reqList: users }),
@@ -55,6 +79,11 @@ export default {
   getMsgList: (params?: any) => getRequest<ListResponse<MessageType>>(urls.getMsgList, params),
   /** 发送消息 */
   sendMsg: (data?: MessageReq) => postRequest<MessageType>(urls.sendMsg, data),
+  /** 确认/取消AI助手发起的高风险操作提议 */
+  confirmAgentAction: (params: { roomId: number; confirmed: boolean }) =>
+    putRequest<void>(urls.confirmAgentAction, params),
+  /** 停止AI流式回复 */
+  stopAiStream: (params: { streamId: string }) => putRequest<void>(urls.stopAiStream, params),
   /** 标记消息，点赞等 */
   markMsg: (data?: MarkMsgReq) => alovaIns.Put<void>(urls.markMsg, data),
   /** 获取用户详细信息 */
@@ -65,6 +94,9 @@ export default {
   setUserBadge: (badgeId: number) => putRequest<void>(urls.setUserBadge, { badgeId }),
   /** 修改用户名 */
   modifyUserName: (name: string) => putRequest<void>(urls.modifyUserName, { name }),
+  /** 修改密码 */
+  modifyPassword: (params: { oldPassword: string; newPassword: string }) =>
+    putRequest<void>(urls.modifyPassword, params),
   /** 更新头像 */
   updateAvatar: (avatar: string) =>
     alovaIns.Put<void>(`${urls.updateAvatar}?avatar=${encodeURIComponent(avatar)}`),
@@ -110,7 +142,7 @@ export default {
   /** 消息阅读上报 */
   markMsgRead: (params?: any) => putRequest<MsgReadUnReadCountType[]>(urls.getMsgReadCount, params),
   /** 新增群组 */
-  createGroup: (params: { uidList: number[] }) =>
+  createGroup: (params: { uidList: number[]; name?: string }) =>
     postRequest<{ id: number }>(urls.createGroup, params),
   /** 邀请群成员 */
   inviteGroupMember: (params: { roomId: number; uidList: number[] }) =>
@@ -143,6 +175,20 @@ export default {
     deleteRequest<Boolean>(urls.exitGroup, {
       roomId,
     }),
+  /** 转让群主 */
+  transferLord: (params: { roomId: number; targetUid: number }) =>
+    putRequest<void>(urls.transferLord, params),
+  /** 更新群公告 */
+  updateGroupNotice: (params: { roomId: number; notice: string }) =>
+    putRequest<void>(urls.updateGroupNotice, params),
+  /** 标记群公告已读 */
+  readGroupNotice: (params: { roomId: number }) =>
+    putRequest<void>(urls.readGroupNotice, params),
+  /** 更新我在群里的昵称 */
+  updateGroupNickname: (params: { roomId: number; nickname: string }) =>
+    putRequest<void>(urls.updateGroupNickname, params),
+  /** 我的群组列表 */
+  myGroupList: () => getRequest<SessionItem[]>(urls.myGroupList),
   /** 置顶会话 */
   pinContact: (roomId: number, pinned: boolean) =>
     putRequest<void>(urls.pinContact, null, { params: { roomId, pinned } }),

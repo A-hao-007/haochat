@@ -38,4 +38,6 @@ public class ChatRoomResp {
     private Integer pinned;
     @ApiModelProperty("是否免打扰 0否 1是")
     private Integer muted;
+    @ApiModelProperty("仅我的群组列表接口返回：是否为该群群主")
+    private Boolean isLord;
 }

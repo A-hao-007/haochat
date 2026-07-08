@@ -5,6 +5,7 @@ import com.ahao.haochat.common.user.dao.UserDao;
 import com.ahao.haochat.common.user.domain.entity.User;
 import com.ahao.haochat.common.user.domain.vo.request.auth.LoginReq;
 import com.ahao.haochat.common.user.domain.vo.request.auth.RegisterReq;
+import com.ahao.haochat.common.user.service.EmailAuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -24,10 +25,13 @@ public class AuthServiceImpl {
     @Autowired
     private UserDao userDao;
 
+    @Autowired
+    private EmailAuthService emailAuthService;
+
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
-     * 注册
+     * 注册（同时完成邮箱绑定）
      */
     @Transactional
     public User register(RegisterReq req) {
@@ -43,9 +47,17 @@ public class AuthServiceImpl {
             throw new BusinessException("昵称已被使用");
         }
 
+        // 检查邮箱唯一性 + 校验验证码
+        User existByEmail = userDao.getByEmail(req.getEmail());
+        if (existByEmail != null) {
+            throw new BusinessException("该邮箱已被注册");
+        }
+        emailAuthService.verifyRegisterCode(req.getEmail(), req.getEmailCode());
+
         User user = User.builder()
                 .username(req.getUsername())
                 .name(req.getName())
+                .email(req.getEmail())
                 .openId(UUID.randomUUID().toString().replace("-", ""))
                 .password(passwordEncoder.encode(req.getPassword()))
                 .activeStatus(2) // 离线
@@ -54,7 +66,8 @@ public class AuthServiceImpl {
                 .updateTime(new Date())
                 .build();
         userDao.save(user);
-        log.info("用户注册成功: username={}, uid={}", req.getUsername(), user.getId());
+        emailAuthService.clearRegisterCode(req.getEmail());
+        log.info("用户注册成功: username={}, uid={}, email={}", req.getUsername(), user.getId(), req.getEmail());
         return user;
     }
 

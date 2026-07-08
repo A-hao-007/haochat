@@ -14,7 +14,7 @@ export const useCachedStore = defineStore(
     const userCachedList = reactive<Record<number, Partial<CacheUserItem>>>({})
     const badgeCachedList = reactive<Record<number, Partial<CacheBadgeItem>>>({})
 
-    const currentRoomId = computed(() => globalStore.currentSession.roomId)
+    const currentRoomId = computed(() => globalStore.currentSession?.roomId)
 
     const atUsersMap = reactive<Record<number, BaseUserItem[]>>({ [currentRoomId.value]: [] }) // 消息Map
 
@@ -25,7 +25,7 @@ export const useCachedStore = defineStore(
           atUsersMap[currentRoomId.value] = []
         }
         if (currentRoomId.value === 1) {
-          return Object.values(userCachedList as BaseUserItem[])
+          return Object.values(userCachedList) as BaseUserItem[]
         }
         return atUsersMap[currentRoomId.value]
       },
@@ -107,7 +107,7 @@ export const useCachedStore = defineStore(
     // 根据用户名关键字过滤用户，
     // FIXME 是否需要过滤自己
     const filterUsers = (searchKey: string) => {
-      return currentAtUsersList.value?.filter((item) => item.name?.startsWith(searchKey))
+      return currentAtUsersList.value?.filter((item: BaseUserItem) => item.name?.startsWith(searchKey))
     }
 
     /**
@@ -115,8 +115,17 @@ export const useCachedStore = defineStore(
      * @param uidList
      */
     const filterUsersByUidList = (uidList: number[]) => {
-      return currentAtUsersList.value.filter((user) => uidList.includes(user.uid))
+      return currentAtUsersList.value.filter((user: BaseUserItem) => uidList.includes(user.uid))
     }
+
+    // 已启用的AI助手 uid 集合，登录后拉取一次，供"是否是AI机器人"的判断复用（@候选人识别、流式回复占位判断等）
+    const aiBotUidSet = reactive<Set<number>>(new Set())
+    const fetchAiBots = async () => {
+      const data = await apis.getAiBots().send()
+      aiBotUidSet.clear()
+      data?.forEach((item) => aiBotUidSet.add(item.uid))
+    }
+    const isBotUid = (uid?: number) => (uid === undefined ? false : aiBotUidSet.has(uid))
 
     return {
       userCachedList,
@@ -128,6 +137,9 @@ export const useCachedStore = defineStore(
       getGroupAtUserBaseInfo,
       currentAtUsersList,
       filterUsersByUidList,
+      aiBotUidSet,
+      fetchAiBots,
+      isBotUid,
     }
   },
   { persist: true },

@@ -17,6 +17,8 @@ import notify from '@/utils/notification'
 export const pageSize = 20
 // 标识是否第一次请求
 let isFirstInit = false
+// 标识AI助手清单是否已拉取过（登录后拉一次即可，不依赖是否已有会话）
+let aiBotsFetched = false
 
 export const useChatStore = defineStore('chat', () => {
   const route = useRoute()
@@ -40,6 +42,25 @@ export const useChatStore = defineStore('chat', () => {
   const replyMapping = reactive<Map<number, Map<number, number[]>>>(
     new Map([[currentRoomId.value, new Map()]]),
   ) // 回复消息映射
+  // AI流式回复占位消息：roomId -> 临时消息id（负数）。同一房间同一时刻只会有一次进行中的流式回复
+  const streamingPlaceholder = reactive<Map<number, number>>(new Map())
+
+  // 未读分割线：roomId -> 进入会话那一刻"第一条未读消息"的id，渲染时在这条消息上方画"以下是新消息"。
+  // 用消息id而不是下标定位——往上翻页/新消息到达都会改变下标，id是稳定的
+  const firstUnreadMsgId = reactive<Map<number, number>>(new Map())
+  // 进入会话时消息可能还没加载完，先记未读数，等 getMsgList 回来后再解析成消息id
+  const pendingUnreadCount = new Map<number, number>()
+
+  const resolveFirstUnread = (roomId: number) => {
+    const count = pendingUnreadCount.get(roomId)
+    if (!count) return
+    const msgs = [...(messageMap.get(roomId)?.values() || [])]
+    if (msgs.length === 0) return // 消息还没加载，留到 getMsgList 完成后再解析
+    pendingUnreadCount.delete(roomId)
+    // 未读的就是最后 count 条；未读数超过已加载条数时退化为"已加载的第一条"
+    const target = msgs[Math.max(msgs.length - count, 0)]
+    if (target) firstUnreadMsgId.set(roomId, target.message.id)
+  }
 
   const currentMessageMap = computed({
     get: () => {
@@ -85,7 +106,7 @@ export const useChatStore = defineStore('chat', () => {
    * 获取当前会话信息
    */
   const currentSessionInfo = computed(() =>
-    sessionList.find((session) => session.roomId === globalStore.currentSession.roomId),
+    sessionList.find((session) => session.roomId === globalStore.currentSession?.roomId),
   )
 
   const chatListToBottomAction = ref<() => void>() // 外部提供消息列表滚动到底部事件
@@ -131,12 +152,13 @@ export const useChatStore = defineStore('chat', () => {
         getMsgList()
       }
 
-      // 群组的时候去请求
+      // 群组的时候去请求群成员/群详情
       if (currentRoomType.value === RoomTypeEnum.Group) {
         groupStore.getGroupUserList(true)
         groupStore.getCountStatistic()
-        cachedStore.getGroupAtUserBaseInfo()
       }
+      // @候选人列表：群聊是真实成员+AI助手，单聊是对方（好友或AI助手），两种场景都要拉取
+      cachedStore.getGroupAtUserBaseInfo()
     }
 
     // 重置当前回复的消息
@@ -150,18 +172,33 @@ export const useChatStore = defineStore('chat', () => {
   const chatMessageList = computed(() => [...(currentMessageMap.value?.values() || [])])
 
   const getMsgList = async (size = pageSize) => {
-    currentMessageOptions.value && (currentMessageOptions.value.isLoading = true)
+    // 捕获本次请求目标的 roomId，避免请求期间用户切换会话导致响应数据写错房间（消息串台）
+    const targetRoomId = currentRoomId.value as number
+    if (targetRoomId === undefined) return
+    if (!messageMap.has(targetRoomId)) messageMap.set(targetRoomId, new Map())
+    if (!messageOptions.has(targetRoomId))
+      messageOptions.set(targetRoomId, { isLast: false, isLoading: false, cursor: '' })
+    if (!replyMapping.has(targetRoomId)) replyMapping.set(targetRoomId, new Map())
+    const targetMessageMap = messageMap.get(targetRoomId) as Map<number, MessageType>
+    const targetOptions = messageOptions.get(targetRoomId) as {
+      isLast: boolean
+      isLoading: boolean
+      cursor: string
+    }
+    const targetReplyMap = replyMapping.get(targetRoomId) as Map<number, number[]>
+
+    targetOptions.isLoading = true
     const data = await apis
       .getMsgList({
         params: {
           pageSize: size,
-          cursor: currentMessageOptions.value?.cursor,
-          roomId: currentRoomId.value,
+          cursor: targetOptions.cursor,
+          roomId: targetRoomId,
         },
       })
       .send()
       .finally(() => {
-        currentMessageOptions.value && (currentMessageOptions.value.isLoading = false)
+        targetOptions.isLoading = false
       })
     if (!data) return
     const computedList = computedTimeBlock(data.list)
@@ -171,9 +208,9 @@ export const useChatStore = defineStore('chat', () => {
     computedList.forEach((msg) => {
       const replyItem = msg.message.body?.reply
       if (replyItem?.id) {
-        const messageIds = currentReplyMap.value?.get(replyItem.id) || []
+        const messageIds = targetReplyMap.get(replyItem.id) || []
         messageIds.push(msg.message.id)
-        currentReplyMap.value?.set(replyItem.id, messageIds)
+        targetReplyMap.set(replyItem.id, messageIds)
 
         // 查询被回复用户的信息，被回复的用户信息里暂时无 uid
         // collectUidItem(replyItem.uid)
@@ -184,17 +221,18 @@ export const useChatStore = defineStore('chat', () => {
     // 获取用户信息缓存
     cachedStore.getBatchUserInfo([...uidCollectYet])
     // 为保证获取的历史消息在前面
-    const newList = [...computedList, ...chatMessageList.value]
-    currentMessageMap.value?.clear() // 清空Map
+    const newList = [...computedList, ...targetMessageMap.values()]
+    targetMessageMap.clear() // 清空Map
     newList.forEach((msg) => {
-      currentMessageMap.value?.set(msg.message.id, msg)
+      targetMessageMap.set(msg.message.id, msg)
     })
 
-    if (currentMessageOptions.value) {
-      currentMessageOptions.value.cursor = data.cursor
-      currentMessageOptions.value.isLast = data.isLast
-      currentMessageOptions.value.isLoading = false
-    }
+    targetOptions.cursor = data.cursor
+    targetOptions.isLast = data.isLast
+    targetOptions.isLoading = false
+
+    // 进入会话时如果消息还没加载完，未读分割线的位置在这里补算
+    resolveFirstUnread(targetRoomId)
   }
 
   const getSessionList = async (isFresh = false) => {
@@ -221,8 +259,14 @@ export const useChatStore = defineStore('chat', () => {
 
     sortAndUniqueSessionList()
 
-    sessionList[0].unreadCount = 0
-    if (!isFirstInit) {
+    // 拉取AI助手清单，供@候选人识别、流式回复占位判断使用；不依赖是否已有会话，新用户零会话也要能拿到
+    if (!aiBotsFetched && userStore.isSign) {
+      aiBotsFetched = true
+      cachedStore.fetchAiBots()
+    }
+
+    if (sessionList[0]) sessionList[0].unreadCount = 0
+    if (!isFirstInit && data.list[0]) {
       isFirstInit = true
       globalStore.currentSession.roomId = data.list[0].roomId
       globalStore.currentSession.type = data.list[0].type
@@ -238,11 +282,20 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /** 会话列表去重并排序 */
+  // activeTime 实际可能是数字时间戳（本地 Date.now() 写入）也可能是后端返回的 ISO 8601 字符串，
+  // 字符串直接做减法得到 NaN，会让 sort 的行为完全失控（这就是"会话列表排序时好时坏"的根因），
+  // 统一先转毫秒再比较
+  const toMillis = (t: number | string): number =>
+    typeof t === 'number' ? t : new Date(t).getTime() || 0
   const sortAndUniqueSessionList = () => {
     const temp: Record<string, SessionItem> = {}
     sessionList.forEach((item) => (temp[item.roomId] = item))
     sessionList.splice(0, sessionList.length, ...Object.values(temp))
-    sessionList.sort((pre, cur) => cur.activeTime - pre.activeTime)
+    sessionList.sort((pre, cur) => {
+      const pinDiff = (cur.pinned ? 1 : 0) - (pre.pinned ? 1 : 0)
+      if (pinDiff !== 0) return pinDiff
+      return toMillis(cur.activeTime) - toMillis(pre.activeTime)
+    })
   }
 
   const updateSession = (roomId: number, roomProps: Partial<SessionItem>) => {
@@ -269,8 +322,21 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const pushMsg = async (msg: MessageType) => {
+    // 真实消息（正数id）到达时，如果来自AI机器人且该房间有正在流式生成的占位消息，先清理占位，用真实消息替换
+    if (msg.message.id > 0 && cachedStore.isBotUid(msg.fromUser.uid)) {
+      const pendingTempId = streamingPlaceholder.get(msg.message.roomId)
+      if (pendingTempId !== undefined) {
+        messageMap.get(msg.message.roomId)?.delete(pendingTempId)
+        streamingPlaceholder.delete(msg.message.roomId)
+      }
+    }
+
+    const isNewRoom = !messageMap.has(msg.message.roomId)
+    if (isNewRoom) messageMap.set(msg.message.roomId, new Map())
     const current = messageMap.get(msg.message.roomId)
     current?.set(msg.message.id, msg)
+    // 重新 set 一次外层 Map，确保嵌套 Map 的原地修改一定能触发依赖它的 computed 重新计算
+    if (current) messageMap.set(msg.message.roomId, current)
 
     // 获取用户信息缓存
     // 尝试取缓存user, 如果有 lastModifyTime 说明缓存过了，没有就一定是要缓存的用户了
@@ -286,7 +352,7 @@ export const useChatStore = defineStore('chat', () => {
       // if (route?.path && route?.path !== '/') {
       //   globalStore.currentSession.roomId = msg.message.roomId
       //   globalStore.currentSession.type = RoomTypeEnum.Single
-      if (!current) {
+      if (isNewRoom) {
         result = await apis.sessionDetail({ id: msg.message.roomId }).send()
       }
       //   Router.push('/')
@@ -420,12 +486,65 @@ export const useChatStore = defineStore('chat', () => {
     pushMsg(newMessage)
   }
 
+  /**
+   * 处理AI流式回复片段：首个片段创建临时占位消息，后续片段原地追加内容。
+   * 不依赖 currentRoomId/currentMessageMap，显式操作 data.roomId 对应的Map——
+   * 用户切到别的会话时，流式推送仍要能正确落到目标房间，不能串到当前正在看的房间。
+   */
+  const handleAgentStreamChunk = (data: {
+    roomId: number
+    streamId: string
+    fromUid: number
+    chunk: string
+  }) => {
+    const { roomId, fromUid, chunk } = data
+    const existingTempId = streamingPlaceholder.get(roomId)
+    if (existingTempId !== undefined) {
+      appendStreamingContent(roomId, existingTempId, chunk)
+      return
+    }
+    const tempId = -Date.now()
+    const placeholderMsg = {
+      fromUser: { uid: fromUid, username: '', avatar: '', locPlace: '', isBot: true },
+      message: {
+        id: tempId,
+        roomId,
+        type: MsgEnum.TEXT,
+        body: { content: chunk, urlContentMap: {}, atUidList: null, reply: null },
+        sendTime: Date.now(),
+        messageMark: { likeCount: 0, userLike: 0, dislikeCount: 0, userDislike: 0 },
+      },
+      sendTime: String(Date.now()),
+      streaming: true,
+      // 停止生成按钮需要它来调 stopAiStream 接口
+      streamId: data.streamId,
+    } as MessageType
+    pushMsg(placeholderMsg)
+    streamingPlaceholder.set(roomId, tempId)
+  }
+
+  const appendStreamingContent = (roomId: number, tempId: number, chunk: string) => {
+    const msg = messageMap.get(roomId)?.get(tempId)
+    if (msg) {
+      // reactive深层代理，直接改字段即可触发视图更新，不需要删除重建
+      msg.message.body.content += chunk
+    }
+  }
+
   // 标记已读数为 0
   const markSessionRead = (roomId: number) => {
     const session = sessionList.find((item) => item.roomId === roomId)
     const unreadCount = session?.unreadCount || 0
     if (session) {
       session.unreadCount = 0
+    }
+    // 记录未读分割线位置：有未读时定位第一条未读消息，无未读时清掉旧分割线
+    if (unreadCount > 0) {
+      pendingUnreadCount.set(roomId, unreadCount)
+      resolveFirstUnread(roomId)
+    } else {
+      pendingUnreadCount.delete(roomId)
+      firstUnreadMsgId.delete(roomId)
     }
     return unreadCount
   }
@@ -444,12 +563,14 @@ export const useChatStore = defineStore('chat', () => {
   return {
     getMsgIndex,
     chatMessageList,
+    firstUnreadMsgId,
     pushMsg,
     deleteMsg,
     clearNewMsgCount,
     updateMarkCount,
     updateRecallStatus,
     updateMsg,
+    handleAgentStreamChunk,
     chatListToBottomAction,
     newMsgCount,
     messageMap,

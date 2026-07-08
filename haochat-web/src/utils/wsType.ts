@@ -26,6 +26,8 @@ export enum WsResponseMessageType {
   NewFriendSession,
   /** 输入状态 */
   TypingStatus = 12,
+  /** AI流式回复片段 */
+  AgentStreamChunk = 13,
 }
 
 /**
@@ -55,4 +57,12 @@ export type OnStatusChangeType = {
   changeList: UserItem[]
   onlineNum: number
   totalNum: number
+}
+
+/** AI流式回复片段：同一次回复的所有片段共享同一个 streamId */
+export type AgentStreamChunkType = {
+  roomId: number
+  streamId: string
+  fromUid: number
+  chunk: string
 }

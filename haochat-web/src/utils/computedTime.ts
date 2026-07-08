@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import type { Dayjs, OpUnitType, ConfigType } from 'dayjs'
+import type { OpUnitType, ConfigType } from 'dayjs'
 import type { MessageType } from '@/services/types'
 
 // 5 分钟 5 * 60 * 1000;
@@ -9,20 +9,31 @@ const computedCountMax = 20
 // 计数
 let computedCount = 0
 
-// 时间格式化为相对文本，仿微信风格
-const timeToStr = (time: number) => {
-  const sendTime = dayjs(time)
-  // 计算今天和消息的发送时间间隔多少天
-  const gapDay = dayjs().endOf('day').diff(sendTime, 'day')
-  // 消息与今天是否 7 天及以上了
-  const isLastWeek = gapDay >= 7
-  // 今天显示时分, 昨天的显示 `昨天 时分`, 今天往前一周内，显示`周几 时分`， 再前面显示日期 `年月日 时分`
-  return gapDay < 2
-    ? `${gapDay === 1 ? '昨天 ' : ''}${sendTime.format('HH:mm')}`
-    : isLastWeek
-    ? sendTime.format('YYYY-MM-DD HH:mm')
-    : dayjs(sendTime).format('dddd HH:mm')
+// 周一 ~ 周日（date.day(): 0=周日 ... 6=周六）
+const weekMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+/**
+ * 统一的聊天时间格式化（始终按浏览器本地时区显示）。
+ * 入参可为时间戳(number) 或 ISO 8601 字符串，dayjs 会自动转为本地时区。
+ *  - 今天：14:30
+ *  - 昨天：昨天 14:30
+ *  - 本周：周一 14:30
+ *  - 更早：2026/06/20 14:30
+ */
+export const formatChatTime = (time: number | string | null | undefined): string => {
+  if (time === null || time === undefined || time === '') return ''
+  const date = dayjs(time)
+  if (!date.isValid()) return ''
+  const now = dayjs()
+  if (now.isSame(date, 'day')) return date.format('HH:mm')
+  if (now.subtract(1, 'day').isSame(date, 'day')) return `昨天 ${date.format('HH:mm')}`
+  // 本周：不早于本地周起点（zh-cn + weekday 插件，周一为起点）
+  if (!date.isBefore(now.startOf('week'))) return `${weekMap[date.day()]} ${date.format('HH:mm')}`
+  return date.format('YYYY/MM/DD HH:mm')
 }
+
+// 时间块分隔（保留旧函数名，复用统一格式化）
+const timeToStr = (time: number) => formatChatTime(time)
 
 // 超过5分钟，或者超过20条消息，就添加展示时间
 const checkTimeInterval = (cur: MessageType, pre: MessageType) => {
@@ -58,22 +69,10 @@ export const computedTimeBlock = (list: MessageType[], needFirst = true) => {
 }
 
 /**
- * 消息时间戳格式化
- * @param timestamp 时间戳
- * @returns 格式化后的时间字符串
+ * 消息时间戳格式化（统一走 formatChatTime，符合本地时区 + 规范格式）
+ * @param timestamp 时间戳或 ISO 8601 字符串
  */
-export const formatTimestamp = (timestamp: number): string => {
-  const now: Dayjs = dayjs()
-  const date: Dayjs = dayjs(timestamp)
-
-  if (now.isSame(date, 'day')) {
-    return date.format('HH:mm')
-  } else if (now.diff(date, 'year') >= 1) {
-    return date.format('YYYY年MM月DD日')
-  } else {
-    return date.format('MM月DD日')
-  }
-}
+export const formatTimestamp = (timestamp: number | string): string => formatChatTime(timestamp)
 
 /**
  * 消息间隔判断

@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
  * Author: <a href="https://github.com/A-hao-007">abin</a>
  * Date: 2023-08-12
  */
-@RocketMQMessageListener(topic = MQConstant.PUSH_TOPIC, consumerGroup = MQConstant.PUSH_GROUP, messageModel = MessageModel.BROADCASTING)
+@RocketMQMessageListener(topic = MQConstant.PUSH_TOPIC, consumerGroup = MQConstant.PUSH_GROUP, messageModel = MessageModel.BROADCASTING,
+        consumeThreadNumber = 2, consumeThreadMax = 4)
 @Component
 public class PushConsumer implements RocketMQListener<PushMessageDTO> {
     @Autowired

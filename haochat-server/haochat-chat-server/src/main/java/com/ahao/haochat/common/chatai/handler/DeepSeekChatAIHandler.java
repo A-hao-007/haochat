@@ -1,16 +1,13 @@
 package com.ahao.haochat.common.chatai.handler;
 
 import com.ahao.haochat.common.chat.domain.entity.Message;
-import com.ahao.haochat.common.chatai.domain.ChatGPTMsg;
+import com.ahao.haochat.common.chatai.agent.AgentService;
 import com.ahao.haochat.common.chatai.properties.DeepSeekProperties;
-import com.ahao.haochat.common.chatai.utils.DeepSeekUtils;
 import com.ahao.haochat.common.user.domain.vo.response.user.UserInfoResp;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.Collections;
 
 /**
  * DeepSeek AI 助手 —— 使用 DeepSeek 大模型
@@ -23,6 +20,9 @@ public class DeepSeekChatAIHandler extends AbstractChatAIHandler {
 
     @Autowired
     private DeepSeekProperties deepSeekProperties;
+
+    @Autowired
+    private AgentService agentService;
 
     @Override
     protected void init() {
@@ -47,27 +47,16 @@ public class DeepSeekChatAIHandler extends AbstractChatAIHandler {
 
     @Override
     protected String doChat(Message message) {
-        String content = message.getContent().trim();
+        String content = message.getContent() == null ? "" : message.getContent().trim();
         if (StringUtils.isBlank(content)) return "请说点什么吧~";
 
         try {
-            ChatGPTMsg userMsg = new ChatGPTMsg();
-            userMsg.setRole("user");
-            userMsg.setContent(content);
-
-            String reply = DeepSeekUtils.create(deepSeekProperties.getKey(), deepSeekProperties.getUrl())
-                    .model(deepSeekProperties.getModel())
-                    .timeout(deepSeekProperties.getTimeout())
-                    .maxTokens(deepSeekProperties.getMaxTokens())
-                    .message(Collections.singletonList(userMsg))
-                    .sendAndGet();
-
-            if (reply != null) return reply;
+            // 走 Agent（function-calling + MCP 工具），流式回复的落库与推送已在 AgentService 内部异步完成，
+            // 这里统一返回 null，不需要再走 AbstractChatAIHandler.answerMsg() 发一次
+            agentService.run(message);
         } catch (Exception e) {
-            log.warn("DeepSeek call error: {}", e.getMessage());
+            log.warn("DeepSeek agent error: {}", e.getMessage());
         }
-
-        // 回退到内置 AI
         return null;
     }
 

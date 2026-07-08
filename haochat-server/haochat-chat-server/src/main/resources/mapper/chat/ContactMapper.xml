@@ -2,6 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ahao.haochat.common.chat.mapper.ContactMapper">
 
+    <!-- 用 GREATEST 保证只前进不后退：MQ 消费是并发的(consumeThreadNumber>1)，同房间两条消息
+         可能乱序处理，裸赋值会让旧消息覆盖新消息的 last_msg_id/active_time（消息积压重放时尤其明显）。
+         COALESCE 兜底 NULL：GREATEST 任一参数为 NULL 时结果是 NULL，会把已有值清掉 -->
     <insert id="refreshOrCreateActiveTime">
         insert into contact(`room_id`,`uid`,`last_msg_id`,`active_time`)
         values
@@ -9,7 +12,7 @@
             (#{roomId},#{uid},#{msgId},#{activeTime})
         </foreach>
         on DUPLICATE KEY UPDATE
-        `last_msg_id`=VALUES(last_msg_id),
-        `active_time`=VALUES(active_time)
+        `last_msg_id`=GREATEST(COALESCE(`last_msg_id`, 0), VALUES(last_msg_id)),
+        `active_time`=GREATEST(COALESCE(`active_time`, '1970-01-01'), VALUES(active_time))
     </insert>
 </mapper>

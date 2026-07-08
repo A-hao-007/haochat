@@ -28,4 +28,7 @@ public class UserInfoResp {
     @ApiModelProperty(value = "剩余改名次数")
     private Integer modifyNameChance;
 
+    @ApiModelProperty(value = "绑定邮箱")
+    private String email;
+
 }

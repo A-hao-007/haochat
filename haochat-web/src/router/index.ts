@@ -30,6 +30,12 @@ const router = createRouter({
           name: 'contact',
           component: HomeContactsView,
         },
+        {
+          path: 'groups',
+          name: 'groups',
+          component: HomeContactsView,
+          meta: { tab: 'groups' },
+        },
       ],
     },
     {

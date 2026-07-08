@@ -8,12 +8,15 @@ import { useGlobalStore } from '@/stores/global'
 import { useCachedStore } from '@/stores/cached'
 import { useUserStore } from '@/stores/user'
 import { useGroupStore } from '@/stores/group'
+import { useContactStore } from '@/stores/contacts'
+import { ElMessage } from 'element-plus'
 
 const chatStore = useChatStore()
 const globalStore = useGlobalStore()
 const cacheStore = useCachedStore()
 const userStore = useUserStore()
 const groupStore = useGroupStore()
+const contactStore = useContactStore()
 
 const props = defineProps<{
   user: CacheUserItem
@@ -36,6 +39,29 @@ const sendMsg = async () => {
   globalStore.currentSession.roomId = result.roomId
   globalStore.currentSession.type = RoomTypeEnum.Single
   chatStore.updateSessionLastActiveTime(result.roomId, result)
+}
+
+/** 是否本人 */
+const isSelf = () => props.user.uid === userStore.userInfo?.uid
+
+/** 添加好友：已是好友提示，否则打开验证消息弹窗发送申请 */
+const addFriend = async () => {
+  if (isSelf()) {
+    ElMessage.info('这是你自己哦~')
+    return
+  }
+  // 确保好友列表已加载后再判断
+  if (!contactStore.contactsList.length) {
+    await contactStore.getContactList(true)
+  }
+  const already = contactStore.contactsList.some((c) => c.uid === props.user.uid)
+  if (already) {
+    ElMessage.info('已是好友')
+    return
+  }
+  // 复用全局加好友弹窗（输入验证消息 → 发送申请）
+  globalStore.addFriendModalInfo.uid = props.user.uid
+  globalStore.addFriendModalInfo.show = true
 }
 
 onMounted(() => {
@@ -100,10 +126,14 @@ onMounted(() => {
     </div>
 
     <!-- 操作按钮 -->
-    <div class="user-card_actions">
-      <button class="action-btn primary" @click="sendMsg" v-if="userStore.isSign">
+    <div class="user-card_actions" v-if="userStore.isSign && !isSelf()">
+      <button class="action-btn primary" @click="sendMsg">
         <IEpChatDotRound :size="16" />
         <span>发消息</span>
+      </button>
+      <button class="action-btn" @click="addFriend">
+        <IEpPlus :size="16" />
+        <span>添加好友</span>
       </button>
     </div>
   </div>

@@ -44,4 +44,9 @@ public class MessageExtra implements Serializable {
      * 表情图片信息
      */
     private EmojisMsgDTO emojisMsgDTO;
+
+    /**
+     * 本条消息是否是AI助手发起的、需要用户确认才会真正执行的高风险操作提议
+     */
+    private Boolean needsConfirmation;
 }

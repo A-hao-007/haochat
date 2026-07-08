@@ -2,14 +2,17 @@
   display: flex;
   flex: 1;
   align-items: stretch;
-  padding: 16px 16px 16px 0;
+  min-width: 0;
+  padding: 8px 14px 8px;
   overflow: hidden;
+  background: #f8fbff;
 }
 
 .chat-wrapper {
   position: relative;
   display: flex;
   flex: 1;
+  min-width: 0;
   align-items: center;
   justify-content: center;
 }
@@ -19,10 +22,10 @@
   flex: 1;
   flex-direction: column;
   height: 100%;
-  padding-bottom: 12px;
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-light);
+  padding-bottom: 14px;
+  background: #fff;
+  border: 1px solid #dfe8f2;
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -31,9 +34,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 16px;
+  padding: 5px 22px;
   font-size: 12px;
-  color: var(--font-light);
+  color: #8a98ab;
 
   .typing-dots {
     display: flex;
@@ -56,7 +59,7 @@
   }
 
   .typing-text {
-    color: var(--font-light);
+    color: #8a98ab;
   }
 }
 
@@ -73,6 +76,7 @@
 
 .chat-edit {
   position: relative;
+  flex: none;
   padding: 0 16px;
   word-break: break-all;
 
@@ -86,11 +90,12 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: 40px;
-    padding: 2px 6px;
+    min-height: 46px;
+    padding: 4px 8px;
     font-size: 14px;
-    color: var(--font-main);
-    background-color: var(--background-3);
+    color: #27364b;
+    background: #f3f6fa;
+    border: 1px solid #e2eaf4;
     border-radius: 12px;
 
     .action {
@@ -99,12 +104,14 @@
       padding: 4px;
       line-height: 1;
       cursor: pointer;
-      background-color: var(--background-3);
+      color: #91a0b3;
+      background: transparent;
       border-radius: 4px;
     }
 
     .action:hover {
-      background-color: var(--hover-bg-2);
+      color: #2f66e8;
+      background: #eaf1fb;
     }
 
     .send {
@@ -112,7 +119,8 @@
     }
 
     .is-edit {
-      background-color: var(--background-2);
+      color: #2f66e8;
+      background: #e9f1ff;
     }
 
     .is-edit .send {
@@ -137,9 +145,9 @@
     :deep(.el-textarea__inner) {
       padding: 0;
       font-size: 14px;
-      color: var(--font-main);
+      color: #27364b;
       resize: none;
-      background-color: var(--background-3);
+      background: #f3f6fa;
       border: none;
       box-shadow: none;
       transition: 0.2s;

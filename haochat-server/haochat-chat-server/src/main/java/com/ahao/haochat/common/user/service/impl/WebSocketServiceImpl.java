@@ -279,6 +279,16 @@ public class WebSocketServiceImpl implements WebSocketService {
         });
     }
 
+    @Override
+    public void sendToUidSync(WSBaseResp<?> wsBaseResp, Long uid) {
+        CopyOnWriteArrayList<Channel> channels = ONLINE_UID_MAP.get(uid);
+        if (CollectionUtil.isEmpty(channels)) {
+            log.info("用户：{}不在线", uid);
+            return;
+        }
+        channels.forEach(channel -> sendMsg(channel, wsBaseResp));
+    }
+
 
     /**
      * 给本地channel发送消息

@@ -3,6 +3,7 @@ package com.ahao.haochat.common.chat.service;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminRevokeReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberExitReq;
+import com.ahao.haochat.common.chat.domain.vo.request.member.TransferLordReq;
 
 /**
  * <p>
@@ -36,4 +37,12 @@ public interface IGroupMemberService {
      * @param request 请求信息
      */
     void exitGroup(Long uid, MemberExitReq request);
+
+    /**
+     * 转让群主
+     *
+     * @param uid     当前群主用户ID
+     * @param request 请求信息
+     */
+    void transferLord(Long uid, TransferLordReq request);
 }

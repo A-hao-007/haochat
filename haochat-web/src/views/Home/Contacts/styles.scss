@@ -67,6 +67,12 @@
   .create-group-panel {
     padding: 8px 16px; max-height: 300px; overflow-y: auto;
     .cg-title { font-size: 12px; color: var(--font-light); margin-bottom: 8px; }
+    .cg-name-input {
+      width: 100%; padding: 8px 10px; margin-bottom: 12px; font-size: 14px;
+      color: var(--font-main); background: var(--bg-input); border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      &:focus { outline: none; border-color: var(--color-primary); }
+    }
     .cg-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
     .cg-item {
       display: flex; align-items: center; gap: 10px; padding: 8px 10px;
@@ -204,6 +210,12 @@
       justify-content: center;
       height: 200px;
       font-size: 14px;
+      color: var(--font-light);
+    }
+
+    .group-section-title {
+      padding: 8px 16px 4px;
+      font-size: 12px;
       color: var(--font-light);
     }
   }

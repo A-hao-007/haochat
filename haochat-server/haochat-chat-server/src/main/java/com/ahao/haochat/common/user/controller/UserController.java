@@ -10,6 +10,9 @@ import com.ahao.haochat.common.user.domain.enums.RoleEnum;
 import com.ahao.haochat.common.user.domain.vo.request.user.*;
 import com.ahao.haochat.common.user.domain.vo.response.user.BadgeResp;
 import com.ahao.haochat.common.user.domain.vo.response.user.UserInfoResp;
+import com.ahao.haochat.common.user.domain.vo.request.auth.BindEmailReq;
+import com.ahao.haochat.common.user.domain.vo.request.auth.EmailCodeReq;
+import com.ahao.haochat.common.user.service.EmailAuthService;
 import com.ahao.haochat.common.user.service.IRoleService;
 import com.ahao.haochat.common.user.service.UserService;
 import io.swagger.annotations.Api;
@@ -36,6 +39,8 @@ public class UserController {
     private UserService userService;
     @Autowired
     private IRoleService iRoleService;
+    @Autowired
+    private EmailAuthService emailAuthService;
 
     @GetMapping("/userInfo")
     @ApiOperation("用户详情")
@@ -96,6 +101,27 @@ public class UserController {
     @ApiOperation("更新头像")
     public ApiResult<Void> updateAvatar(@RequestParam String avatar) {
         userService.updateAvatar(RequestHolder.get().getUid(), avatar);
+        return ApiResult.success();
+    }
+
+    @PutMapping("/password")
+    @ApiOperation("修改密码")
+    public ApiResult<Void> modifyPassword(@Valid @RequestBody ModifyPasswordReq req) {
+        userService.modifyPassword(RequestHolder.get().getUid(), req);
+        return ApiResult.success();
+    }
+
+    @PostMapping("/email/code")
+    @ApiOperation("发送绑定邮箱验证码")
+    public ApiResult<Void> sendBindEmailCode(@Valid @RequestBody EmailCodeReq req) {
+        emailAuthService.sendBindCode(RequestHolder.get().getUid(), req.getEmail());
+        return ApiResult.success();
+    }
+
+    @PutMapping("/email")
+    @ApiOperation("绑定邮箱")
+    public ApiResult<Void> bindEmail(@Valid @RequestBody BindEmailReq req) {
+        emailAuthService.bindEmail(RequestHolder.get().getUid(), req.getEmail(), req.getCode());
         return ApiResult.success();
     }
 }

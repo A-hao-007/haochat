@@ -18,7 +18,9 @@ const close = () => {
   globalStore.addFriendModalInfo.uid = undefined
 }
 const onSend = async () => {
-  await send({ msg: requestMsg.value, targetUid: globalStore.addFriendModalInfo.uid })
+  const targetUid = globalStore.addFriendModalInfo.uid
+  if (!targetUid) return
+  await send({ msg: requestMsg.value, targetUid })
   ElMessage.success('TA一定会被你的诚意打动的~')
   close()
 }

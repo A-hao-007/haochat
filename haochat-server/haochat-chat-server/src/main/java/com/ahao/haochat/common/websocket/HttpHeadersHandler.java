@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.websocket;
 
 import cn.hutool.core.net.url.UrlBuilder;
+import com.ahao.haochat.common.common.utils.IpUtils;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -25,11 +26,14 @@ public class HttpHeadersHandler extends ChannelInboundHandlerAdapter {
             // 获取请求路径
             request.setUri(urlBuilder.getPath().toString());
             HttpHeaders headers = request.headers();
-            String ip = headers.get("X-Real-IP");
-            if (StringUtils.isEmpty(ip)) {//如果没经过nginx，就直接获取远端地址
-                InetSocketAddress address = (InetSocketAddress) ctx.channel().remoteAddress();
-                ip = address.getAddress().getHostAddress();
+            // 按优先级获取真实 IP：X-Forwarded-For → X-Real-IP → RemoteAddr
+            String xForwardedFor = headers.get("X-Forwarded-For");
+            String xRealIp = headers.get("X-Real-IP");
+            String remoteAddr = null;
+            if (ctx.channel().remoteAddress() instanceof InetSocketAddress) {
+                remoteAddr = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress();
             }
+            String ip = IpUtils.getClientIpFromHeaders(xForwardedFor, xRealIp, remoteAddr);
             NettyUtil.setAttr(ctx.channel(), NettyUtil.IP, ip);
             ctx.pipeline().remove(this);
             ctx.fireChannelRead(request);

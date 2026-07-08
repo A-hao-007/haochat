@@ -28,6 +28,12 @@ public class ChatMessageResp {
     public static class UserInfo {
         @ApiModelProperty("用户id")
         private Long uid;
+        @ApiModelProperty("发送者IP")
+        private String senderIp;
+        @ApiModelProperty("发送者IP属地（解析失败/内网返回'未知'）")
+        private String senderLocation;
+        @ApiModelProperty("是否为AI助手消息")
+        private Boolean isBot;
     }
 
     @Data

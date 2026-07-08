@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onBeforeMount, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useContactStore } from '@/stores/contacts'
 import { useGlobalStore } from '@/stores/global'
 import { useCachedStore } from '@/stores/cached'
+import { useGroupStore } from '@/stores/group'
 import { useUserInfo } from '@/hooks/useCached'
 import { useChatStore } from '@/stores/chat'
 import apis from '@/services/apis'
@@ -13,12 +14,20 @@ import type { RequestFriendItem } from '@/services/types'
 import { RequestFriendAgreeStatus } from '@/services/types'
 
 const router = useRouter()
+const route = useRoute()
 const contactStore = useContactStore()
 const globalStore = useGlobalStore()
 const cachedStore = useCachedStore()
 const chatStore = useChatStore()
+const groupStore = useGroupStore()
 
-const activeTab = ref<'contacts' | 'requests'>('contacts')
+const activeTab = ref<'contacts' | 'requests' | 'groups'>(
+  route.meta.tab === 'groups' ? 'groups' : 'contacts'
+)
+watch(
+  () => route.meta.tab,
+  (tab) => { activeTab.value = tab === 'groups' ? 'groups' : 'contacts' }
+)
 const searchKeyword = ref('')
 const searchResults = ref<{ uid: number; name: string; avatar: string }[]>([])
 const searching = ref(false)
@@ -38,7 +47,19 @@ onBeforeMount(async () => {
   // 批量预加载联系人用户信息
   const uids = contactStore.contactsList.map((c: { uid: number }) => c.uid)
   if (uids.length) cachedStore.getBatchUserInfo(uids)
+  await groupStore.getMyGroupList()
 })
+
+// 群组列表：拆分为"我创建的"和"我加入的"
+const myCreatedGroups = computed(() => groupStore.myGroupList.filter((g) => g.isLord))
+const myJoinedGroups = computed(() => groupStore.myGroupList.filter((g) => !g.isLord))
+
+/** 进入群聊会话 */
+const openGroup = (roomId: number) => {
+  globalStore.currentSession.roomId = roomId
+  globalStore.currentSession.type = RoomTypeEnum.Group
+  router.push('/')
+}
 
 /** 获取联系人信息 */
 const getContactInfo = (uid: number) => {
@@ -117,6 +138,7 @@ const sendMessage = async (uid: number) => {
 /** 创建群聊 */
 const showCreateGroup = ref(false)
 const selectedUids = ref(new Set<number>())
+const groupName = ref('')
 
 const toggleSelectUid = (uid: number) => {
   const s = new Set(selectedUids.value)
@@ -128,10 +150,12 @@ const createGroup = async () => {
   const ids = [...selectedUids.value]
   if (ids.length < 1) { ElMessage.warning('请至少选择一个联系人'); return }
   try {
-    await apis.createGroup({ uidList: ids }).send()
+    await apis.createGroup({ uidList: ids, name: groupName.value.trim() || undefined }).send()
     ElMessage.success('群聊创建成功')
     showCreateGroup.value = false
     selectedUids.value = new Set()
+    groupName.value = ''
+    await groupStore.getMyGroupList()
   } catch (err: any) { ElMessage.error(err?.message || '创建失败') }
 }
 const deleteFriend = async (uid: number) => {
@@ -171,6 +195,8 @@ const deleteFriend = async (uid: number) => {
       </button>
     </div>
     <div v-if="showCreateGroup" class="create-group-panel">
+      <div class="cg-title">群名称</div>
+      <input v-model="groupName" class="cg-name-input" placeholder="给群聊起个名字（可选）" maxlength="30" />
       <div class="cg-title">选择群成员（点击联系人）</div>
       <div class="cg-list">
         <div v-if="contactsList.length === 0" class="empty">暂无联系人</div>
@@ -224,6 +250,12 @@ const deleteFriend = async (uid: number) => {
         新的朋友
         <span v-if="newRequestCount" class="badge">{{ newRequestCount }}</span>
       </button>
+      <button
+        :class="['tab', { active: activeTab === 'groups' }]"
+        @click="activeTab = 'groups'"
+      >
+        群组 ({{ groupStore.myGroupList.length }})
+      </button>
     </div>
 
     <!-- 联系人列表 -->
@@ -246,6 +278,44 @@ const deleteFriend = async (uid: number) => {
           <button class="del-btn" @click="deleteFriend(item.uid)">删除</button>
         </div>
       </div>
+    </div>
+
+    <!-- 群组列表 -->
+    <div v-if="activeTab === 'groups'" class="list-section">
+      <div v-if="groupStore.myGroupListLoading" class="empty">加载中...</div>
+      <template v-else>
+        <div v-if="groupStore.myGroupList.length === 0" class="empty">暂无群组，创建一个群聊吧</div>
+        <template v-else>
+          <div v-if="myCreatedGroups.length" class="group-section-title">我创建的群</div>
+          <div
+            v-for="item in myCreatedGroups"
+            :key="item.roomId"
+            class="contact-item"
+            @click="openGroup(item.roomId)"
+          >
+            <el-avatar :size="44" :src="item.avatar" />
+            <div class="contact-info">
+              <span class="contact-name">{{ item.name }}</span>
+              <span class="contact-status">{{ item.text || '暂无消息' }}</span>
+            </div>
+            <el-badge v-if="item.unreadCount" :value="item.unreadCount" :max="99" />
+          </div>
+          <div v-if="myJoinedGroups.length" class="group-section-title">我加入的群</div>
+          <div
+            v-for="item in myJoinedGroups"
+            :key="item.roomId"
+            class="contact-item"
+            @click="openGroup(item.roomId)"
+          >
+            <el-avatar :size="44" :src="item.avatar" />
+            <div class="contact-info">
+              <span class="contact-name">{{ item.name }}</span>
+              <span class="contact-status">{{ item.text || '暂无消息' }}</span>
+            </div>
+            <el-badge v-if="item.unreadCount" :value="item.unreadCount" :max="99" />
+          </div>
+        </template>
+      </template>
     </div>
 
     <!-- 好友请求列表 -->

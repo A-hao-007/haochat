@@ -28,6 +28,8 @@ public class TextMsgResp {
     private List<Long> atUidList;
     @ApiModelProperty("父消息，如果没有父消息，返回的是null")
     private TextMsgResp.ReplyMsg reply;
+    @ApiModelProperty("是否是AI助手发起的需要用户确认的高风险操作提议")
+    private Boolean needsConfirmation;
 
     @Data
     @Builder

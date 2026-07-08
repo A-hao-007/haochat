@@ -33,4 +33,7 @@ public class ChatMemberResp {
 
     @ApiModelProperty("最后一次上下线时间")
     private Date lastOptTime;
+
+    @ApiModelProperty("群内昵称（未设置则为空）")
+    private String nickname;
 }

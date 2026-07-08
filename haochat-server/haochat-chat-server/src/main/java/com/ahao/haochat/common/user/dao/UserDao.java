@@ -36,6 +36,17 @@ public class UserDao extends ServiceImpl<UserMapper, User> {
         return lambdaQuery().eq(User::getUsername, username).one();
     }
 
+    public User getByEmail(String email) {
+        return lambdaQuery().eq(User::getEmail, email).one();
+    }
+
+    public void modifyEmail(Long uid, String email) {
+        User update = new User();
+        update.setId(uid);
+        update.setEmail(email);
+        updateById(update);
+    }
+
     /**
      * 按关键词搜索用户（模糊匹配用户名和昵称）
      */
@@ -53,6 +64,13 @@ public class UserDao extends ServiceImpl<UserMapper, User> {
         User update = new User();
         update.setId(uid);
         update.setName(name);
+        updateById(update);
+    }
+
+    public void modifyPassword(Long uid, String encodedPassword) {
+        User update = new User();
+        update.setId(uid);
+        update.setPassword(encodedPassword);
         updateById(update);
     }
 

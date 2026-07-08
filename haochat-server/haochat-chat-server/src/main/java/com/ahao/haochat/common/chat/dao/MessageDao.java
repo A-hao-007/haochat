@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollectionUtil;
 import com.ahao.haochat.common.chat.domain.entity.Contact;
 import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chat.domain.enums.MessageStatusEnum;
+import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
 import com.ahao.haochat.common.chat.mapper.MessageMapper;
 import com.ahao.haochat.common.common.domain.vo.request.CursorPageBaseReq;
 import com.ahao.haochat.common.common.domain.vo.response.CursorPageBaseResp;
@@ -36,6 +37,20 @@ public class MessageDao extends ServiceImpl<MessageMapper, Message> {
             wrapper.eq(Message::getStatus, MessageStatusEnum.NORMAL.getStatus());
             wrapper.le(Objects.nonNull(lastMsgId), Message::getId, lastMsgId);
         }, Message::getId);
+    }
+
+    /**
+     * 按关键字搜索某会话内的文本历史消息（Agent searchHistory 工具用）
+     */
+    public List<Message> searchByKeyword(Long roomId, String keyword, int limit) {
+        return lambdaQuery()
+                .eq(Message::getRoomId, roomId)
+                .eq(Message::getStatus, MessageStatusEnum.NORMAL.getStatus())
+                .eq(Message::getType, MessageTypeEnum.TEXT.getType())
+                .like(Message::getContent, keyword)
+                .orderByDesc(Message::getId)
+                .last("limit " + limit)
+                .list();
     }
 
     /**

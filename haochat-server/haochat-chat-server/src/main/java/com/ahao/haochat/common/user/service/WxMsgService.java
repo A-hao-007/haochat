@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.user.service;
 
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.crypto.SecureUtil;
 import com.ahao.haochat.common.common.constant.MQConstant;
 import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.domain.dto.LoginMessageDTO;
@@ -59,7 +60,12 @@ public class WxMsgService {
 
         //user为空先注册,手动生成,以保存uid
         if (Objects.isNull(user)) {
-            user = User.builder().openId(openid).build();
+            // username 列有非空唯一约束（账号系统引入），微信自动建号必须生成占位用户名：
+            // 用 openid 的 md5 前16位保证确定性与唯一性，前缀区分来源，总长19位符合用户名长度规范
+            user = User.builder()
+                    .openId(openid)
+                    .username("wx_" + SecureUtil.md5(openid).substring(0, 16))
+                    .build();
             userService.register(user);
         }
         //在redis中保存openid和场景code的关系，后续才能通知到前端,旧版数据没有清除,这里设置了过期时间

@@ -49,6 +49,12 @@ public class User implements Serializable {
     private String username;
 
     /**
+     * 邮箱（找回密码 / 邮箱登录用）
+     */
+    @TableField("email")
+    private String email;
+
+    /**
      * 密码（BCrypt加密）
      */
     @TableField("password")
@@ -85,10 +91,16 @@ public class User implements Serializable {
     private Date lastOptTime;
 
     /**
-     * 最后上下线时间
+     * ip信息（JSON）
      */
     @TableField(value = "ip_info", typeHandler = JacksonTypeHandler.class)
     private IpInfo ipInfo;
+
+    /**
+     * 最近登录IP地址
+     */
+    @TableField("last_login_ip")
+    private String lastLoginIp;
 
     /**
      * 佩戴的徽章id
@@ -122,5 +134,6 @@ public class User implements Serializable {
             ipInfo = new IpInfo();
         }
         ipInfo.refreshIp(ip);
+        this.lastLoginIp = ip;
     }
 }

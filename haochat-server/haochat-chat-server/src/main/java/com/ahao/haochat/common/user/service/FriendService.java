@@ -62,6 +62,12 @@ public interface FriendService {
     void applyApprove(Long uid, FriendApproveReq request);
 
     /**
+     * 同意好友申请的事务主体。仅供 {@link #applyApprove} 在获取"好友对"分布式锁后经代理调用，
+     * 单独暴露是为了让事务生效（自调用不走代理，事务/锁注解会失效）。外部请勿直接调用。
+     */
+    void doApplyApprove(Long uid, FriendApproveReq request);
+
+    /**
      * 删除好友
      *
      * @param uid       uid

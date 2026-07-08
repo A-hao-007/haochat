@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useGlobalStore } from '@/stores/global'
-import { useCachedStore } from '@/stores/cached'
+import { useChatStore } from '@/stores/chat'
 import { RoomTypeEnum } from '@/enums'
 
 import UserList from '../UserList/index.vue'
@@ -10,8 +10,9 @@ import SendBar from './SendBar/index.vue'
 
 const isSelect = ref(false)
 const globalStore = useGlobalStore()
-const cachedStore = useCachedStore()
+const chatStore = useChatStore()
 const currentSession = computed(() => globalStore.currentSession)
+const showUserList = computed(() => !!chatStore.currentSessionInfo && currentSession.value.type === RoomTypeEnum.Group)
 
 // 输入状态（模拟 - 将来可从 WebSocket 获取）
 const typingUsers = reactive<Map<number, string>>(new Map())
@@ -49,7 +50,7 @@ defineExpose({ updateTyping })
         <SendBar :onTyping="(uid: number, name: string) => updateTyping(uid, name)" />
       </div>
     </div>
-    <UserList v-show="currentSession.type === RoomTypeEnum.Group" />
+    <UserList v-show="showUserList" />
   </div>
 </template>
 

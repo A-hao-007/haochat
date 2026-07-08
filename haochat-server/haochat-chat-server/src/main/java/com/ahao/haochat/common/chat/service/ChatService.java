@@ -70,6 +70,9 @@ public interface ChatService {
 
     void recallMsg(Long uid, ChatMessageBaseReq request);
 
+    // [AUDIT-ADD] B-消息编辑：仅发送者可编辑文本消息，并刷新更新时间
+    void editMsg(Long uid, ChatMessageEditReq request);
+
     List<ChatMemberListResp> getMemberList(ChatMessageMemberReq chatMessageMemberReq);
 
     Collection<MsgReadInfoDTO> getMsgReadInfo(Long uid, ChatMessageReadInfoReq request);

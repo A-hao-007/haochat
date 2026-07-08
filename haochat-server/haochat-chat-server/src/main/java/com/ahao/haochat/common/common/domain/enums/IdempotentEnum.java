@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 public enum IdempotentEnum {
     UID(1, "uid"),
     MSG_ID(2, "消息id"),
+    YEAR_MONTH(3, "年月"),
     ;
 
     private final Integer type;

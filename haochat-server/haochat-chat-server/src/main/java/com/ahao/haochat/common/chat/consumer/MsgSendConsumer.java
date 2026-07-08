@@ -21,6 +21,7 @@ import com.ahao.haochat.common.user.service.WebSocketService;
 import com.ahao.haochat.common.user.service.adapter.WSAdapter;
 import com.ahao.haochat.common.user.service.cache.UserCache;
 import com.ahao.haochat.common.user.service.impl.PushService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,8 +38,12 @@ import java.util.Objects;
  * Author: <a href="https://github.com/A-hao-007">abin</a>
  * Date: 2023-08-12
  */
-@RocketMQMessageListener(consumerGroup = MQConstant.SEND_MSG_GROUP, topic = MQConstant.SEND_MSG_TOPIC)
+// consumeThreadNumber/consumeThreadMax 显式收紧：默认值(20/64)是给多核大流量场景准备的，
+// 2核小容器+4个consumer同时用默认值会导致上百条常驻线程，是本机线程数偏高的主因之一
+@RocketMQMessageListener(consumerGroup = MQConstant.SEND_MSG_GROUP, topic = MQConstant.SEND_MSG_TOPIC,
+        consumeThreadNumber = 2, consumeThreadMax = 4)
 @Component
+@Slf4j
 public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
     @Autowired
     private WebSocketService webSocketService;
@@ -72,7 +77,15 @@ public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
     @Override
     public void onMessage(MsgSendMessageDTO dto) {
         Message message = messageDao.getById(dto.getMsgId());
+        if (message == null) {
+            log.warn("onMessage: message not found, msgId={}", dto.getMsgId());
+            return;
+        }
         Room room = roomCache.get(message.getRoomId());
+        if (room == null) {
+            log.warn("onMessage: room not found, roomId={}", message.getRoomId());
+            return;
+        }
         ChatMessageResp msgResp = chatService.getMsgResp(message, null);
         //所有房间更新房间最新消息
         roomDao.refreshActiveTime(room.getId(), message.getId(), message.getCreateTime());

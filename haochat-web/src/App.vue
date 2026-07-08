@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import AiAssistantBall from '@/components/AiAssistantBall/index.vue'
 // 全局导入 toast 样式
 import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
@@ -14,6 +15,7 @@ const isLoginPage = computed(() => route.path === '/login')
 <template>
   <div class="app-wrapper" :class="{ 'is-login-page': isLoginPage }">
     <RouterView />
+    <AiAssistantBall v-if="!isLoginPage" />
   </div>
 </template>
 
@@ -22,18 +24,12 @@ const isLoginPage = computed(() => route.path === '/login')
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  background: #edf4fb;
 }
 
 .app-wrapper:not(.is-login-page) {
-  background-image: url('@/assets/login_bg.jpg');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: cover;
-}
-
-@supports (background-image: url('@/assets/login_bg.webp')) {
-  .app-wrapper:not(.is-login-page) {
-    background-image: url('@/assets/login_bg.webp');
-  }
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 36%),
+    linear-gradient(180deg, #f7fbff 0%, #e8f0f8 100%);
 }
 </style>

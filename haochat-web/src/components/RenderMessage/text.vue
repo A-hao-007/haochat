@@ -1,8 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import type { TextBody } from '@/services/types'
 
-const props = defineProps<{ body: TextBody }>()
+const props = defineProps<{ body: TextBody; isBot?: boolean }>()
+
+// AI 消息走 markdown 渲染（普通用户消息保持纯文本，避免用户输入的 markdown 符号被意外转义/渲染）。
+// marked 输出经 DOMPurify 消毒后才交给 v-html，防 XSS；链接强制新窗口打开。
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer nofollow')
+  }
+})
+const botHtml = computed(() => {
+  if (!props.isBot) return ''
+  const raw = marked.parse(props.body.content || '', { async: false, breaks: true }) as string
+  return DOMPurify.sanitize(raw)
+})
 
 // 获取所有匹配的字符串
 const urlMap = props.body.urlContentMap || {}
@@ -30,7 +46,10 @@ function onImageLoadError(e: Event) {
 </script>
 
 <template>
-  <div class="text">
+  <!-- AI 消息：markdown 渲染（已消毒） -->
+  <div v-if="isBot" class="text text-markdown" v-html="botHtml" />
+  <!-- 普通消息：纯文本 + @高亮 + 链接卡片 -->
+  <div v-else class="text">
     <template v-for="(item, index) in fragments">
       <span
         v-if="item.startsWith('@') && item.trim() !== '' && item.trim() !== '@'"

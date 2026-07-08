@@ -23,14 +23,18 @@ const componentMap = {
 
 const userStore = useUserStore()
 
-defineProps<{ message: MsgType }>()
+defineProps<{ message: MsgType; isBot?: boolean }>()
 </script>
 
 <template>
+  <!-- draggable 用于"拖动消息到左侧会话转发"，但 draggable=true 会让浏览器把气泡内的
+       鼠标拖动当成 HTML5 拖拽而不是文字选择，导致文本消息无法选中部分文字复制。
+       文本消息的可选中优先级高于拖拽转发，所以仅对非文本类型保留拖拽 -->
   <component
     :is="componentMap[message.type]"
     :body="message.body"
+    :is-bot="isBot"
     :data-message-id="message.id"
-    :draggable="userStore.isSign ? 'true' : 'false'"
+    :draggable="userStore.isSign && message.type !== MsgEnum.TEXT ? 'true' : 'false'"
   />
 </template>

@@ -54,6 +54,12 @@ public class GroupMember implements Serializable {
     private Integer role;
 
     /**
+     * 群内昵称
+     */
+    @TableField("nickname")
+    private String nickname;
+
+    /**
      * 创建时间
      */
     @TableField("create_time")
