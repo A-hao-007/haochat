@@ -10,7 +10,7 @@ REDIS_PASSWORD=$(grep -E '^REDIS_PASSWORD=' .env | cut -d= -f2-)
 JWT_SECRET=$(grep -E '^JWT_SECRET=' .env | cut -d= -f2-)
 
 BASE_UID=90000
-USER_COUNT=21   # 1 个发送者 + 20 个接收者
+USER_COUNT=200  # 200 个发送者互为群成员（发送有 per-uid 频控：5s/3条+30s/5条，多用户分摊才能上量）
 
 echo "==> 1/4 插入 ${USER_COUNT} 个测试用户 (uid ${BASE_UID}+1..${BASE_UID}+${USER_COUNT})"
 SQL="INSERT IGNORE INTO user (id, name, avatar, sex, open_id, status) VALUES "
@@ -46,17 +46,29 @@ for (const [uid, token] of Object.entries(t)) {
 " | docker exec -i haochat-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning | sort | uniq -c
 echo "tokens 已写入 perf-local/tokens.json 与 Redis"
 
-echo "==> 3/4 用发送者身份建压测群（拉入其余 20 人）"
+echo "==> 3/4 建压测群：API 建 50 人群（uidList 上限 50），其余成员 SQL 直插 group_member"
 # Caddy 站点地址绑定 SITE_ORIGIN（Host 必须匹配），不能用 localhost
 SITE_ORIGIN=$(grep -E '^SITE_ORIGIN=' .env | cut -d= -f2-)
 SENDER_UID=$((BASE_UID + 1))
 SENDER_TOKEN=$(node -e "console.log(require('./perf-local/tokens.json')['$SENDER_UID'])")
-UID_LIST=$(seq -s, $((BASE_UID + 2)) $((BASE_UID + USER_COUNT)))
+UID_LIST=$(seq -s, $((BASE_UID + 2)) $((BASE_UID + 50)))
 RESP=$(curl -s -X POST "$SITE_ORIGIN/capi/room/group" \
   -H "Authorization: Bearer $SENDER_TOKEN" -H "Content-Type: application/json" \
   -d "{\"uidList\":[$UID_LIST],\"name\":\"perf-group\"}")
 echo "$RESP"
 ROOM_ID=$(node -e "const r=$RESP; console.log(r.data?.id ?? '')" 2>/dev/null || true)
+if [ -n "$ROOM_ID" ] && [ "$USER_COUNT" -gt 50 ]; then
+  GROUP_ID=$(docker exec haochat-mysql mysql -uhaochat -p"$MYSQL_PASSWORD" haochat -N \
+    -e "SELECT id FROM room_group WHERE room_id=$ROOM_ID" 2>/dev/null | tr -d '[:space:]')
+  MSQL="INSERT IGNORE INTO group_member (group_id, uid, role) VALUES "
+  for i in $(seq 51 $USER_COUNT); do
+    MSQL+="($GROUP_ID, $((BASE_UID + i)), 3)"
+    [ "$i" -lt "$USER_COUNT" ] && MSQL+=","
+  done
+  MSQL+=";"
+  docker exec haochat-mysql mysql -uhaochat -p"$MYSQL_PASSWORD" haochat -e "$MSQL"
+  echo "group_id=$GROUP_ID 补插成员至 $USER_COUNT 人"
+fi
 
 echo "==> 4/4 写出压测环境变量"
 cat > perf-local/env.sh <<EOV
