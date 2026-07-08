@@ -95,10 +95,7 @@ public class SecureInvokeService {
     }
 
     public void doAsyncInvoke(SecureInvokeRecord record) {
-        executor.execute(() -> {
-            System.out.println(Thread.currentThread().getName());
-            doInvoke(record);
-        });
+        executor.execute(() -> doInvoke(record));
     }
 
     public void doInvoke(SecureInvokeRecord record) {

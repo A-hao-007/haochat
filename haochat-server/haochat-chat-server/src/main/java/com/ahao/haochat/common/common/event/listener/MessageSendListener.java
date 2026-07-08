@@ -23,7 +23,13 @@ import com.ahao.haochat.common.user.service.WebSocketService;
 import com.ahao.haochat.common.user.service.adapter.WSAdapter;
 import com.ahao.haochat.common.user.service.cache.UserCache;
 import com.ahao.haochat.common.user.service.impl.PushService;
+import cn.hutool.core.date.DateUtil;
+import com.ahao.haochat.common.chat.service.MsgRouteSender;
+import com.ahao.haochat.transaction.domain.dto.SecureInvokeDTO;
+import com.ahao.haochat.transaction.domain.entity.SecureInvokeRecord;
 import com.ahao.haochat.transaction.service.MQProducer;
+import com.ahao.haochat.transaction.service.SecureInvokeService;
+import com.ahao.haochat.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +40,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -75,16 +83,54 @@ public class MessageSendListener {
     private MQProducer mqProducer;
     @Autowired
     private PushService pushService;
+    @Autowired
+    private MsgRouteSender msgRouteSender;
+    @Autowired
+    private SecureInvokeService secureInvokeService;
 
     /**
-     * 发送到 MQ（用于 room/contact 更新等异步任务）
-     * 用 AFTER_COMMIT 而不是 BEFORE_COMMIT：消费者收到消息后会立刻查 message 表，
-     * BEFORE_COMMIT 阶段本地事务还没真正提交，消费速度足够快时会出现"查不到这条消息"的竞态。
+     * 发送到 MQ（用于 room/contact 更新等异步任务）——乐观直发 + 失败落表补偿。
+     *
+     * 演进记录（面试素材）：曾改为 BEFORE_COMMIT + @SecureInvoke 的教科书式本地消息表
+     * （每条消息事务内 insert + 成功后 delete），压测显示行级 churn 与事务变长使发送 P95
+     * 从 955ms 恶化到 2.06s、读取 P95 从 105ms 恶化到 1.39s——可靠性成本必须按失败概率分配：
+     * 正常路径（broker 可用，>99.9%）直发零额外开销；仅发送异常时才写 secure_invoke_record，
+     * 交给 SecureInvokeService 既有的 5s 补偿扫描 + 指数退避重试。
+     * 剩余风险窗口：事务提交后、直发完成前进程崩溃会丢这一次路由（与改造前相同），
+     * 由"下一条消息自愈会话时间"兜底。
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, classes = MessageSendEvent.class, fallbackExecution = true)
     public void messageRoute(MessageSendEvent event) {
         Long msgId = event.getMsgId();
-        mqProducer.sendMsg(MQConstant.SEND_MSG_TOPIC, new MsgSendMessageDTO(msgId));
+        try {
+            msgRouteSender.send(msgId);
+        } catch (Exception e) {
+            log.error("MQ 消息路由直发失败，落补偿记录等待重试 msgId={}", msgId, e);
+            saveRouteCompensation(msgId);
+        }
+    }
+
+    /**
+     * 构造指向 MsgRouteSender.send(Long) 的补偿记录，由 SecureInvokeService 定时反射重放
+     */
+    private void saveRouteCompensation(Long msgId) {
+        try {
+            SecureInvokeDTO dto = SecureInvokeDTO.builder()
+                    .className(MsgRouteSender.class.getName())
+                    .methodName("send")
+                    .parameterTypes(JsonUtils.toStr(Collections.singletonList(Long.class.getName())))
+                    .args(JsonUtils.toStr(new Object[]{msgId}))
+                    .build();
+            SecureInvokeRecord record = SecureInvokeRecord.builder()
+                    .secureInvokeDTO(dto)
+                    .maxRetryTimes(5)
+                    //首次重试 30s 后（broker 抖动通常秒级恢复），之后指数退避
+                    .nextRetryTime(DateUtil.offsetSecond(new Date(), 30))
+                    .build();
+            secureInvokeService.save(record);
+        } catch (Exception ex) {
+            log.error("补偿记录写入失败，msgId={} 的路由将依赖下一条消息自愈", msgId, ex);
+        }
     }
 
     /**

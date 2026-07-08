@@ -1,0 +1,50 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{scenario:readers}
+    ✓ 'p(95)<800' p(95)=261.96ms
+
+    http_req_duration{scenario:senders}
+    ✗ 'p(95)<1500' p(95)=1.7s
+
+    http_req_failed{scenario:readers}
+    ✓ 'rate<0.02' rate=0.00%
+
+    http_req_failed{scenario:senders}
+    ✗ 'rate<0.05' rate=5.37%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 19649  92.114935/s
+    checks_succeeded...: 98.73% 19400 out of 19649
+    checks_failed......: 1.26%  249 out of 19649
+
+    ✓ read ok
+    ✗ send ok
+      ↳  94% — ✓ 4387 / ✗ 249
+
+    HTTP
+    http_req_duration..............: avg=196.89ms min=2.47ms   med=20.89ms  max=2.42s p(90)=396.69ms p(95)=1.66s   
+      { expected_response:true }...: avg=193.86ms min=3.97ms   med=20.79ms  max=2.42s p(90)=319.37ms p(95)=1.66s   
+      { scenario:readers }.........: avg=119.01ms min=3.97ms   med=15.12ms  max=2.37s p(90)=117.79ms p(95)=261.96ms
+      { scenario:senders }.........: avg=449.08ms min=2.47ms   med=94.84ms  max=2.42s p(90)=1.63s    p(95)=1.7s    
+    http_req_failed................: 1.26%  249 out of 19649
+      { scenario:readers }.........: 0.00%  0 out of 15013
+      { scenario:senders }.........: 5.37%  249 out of 4636
+    http_reqs......................: 19649  92.114935/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.96s    min=304.22ms med=327.24ms max=8.92s p(90)=6.62s    p(95)=7.69s   
+    iterations.....................: 19649  92.114935/s
+    vus............................: 8      min=8            max=230
+    vus_max........................: 230    min=230          max=230
+
+    NETWORK
+    data_received..................: 118 MB 553 kB/s
+    data_sent......................: 5.8 MB 27 kB/s
+
+
+
+time="2026-07-08T09:27:42Z" level=error msg="thresholds on metrics 'http_req_duration{scenario:senders}, http_req_failed{scenario:senders}' have been crossed"
