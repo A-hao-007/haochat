@@ -13,6 +13,7 @@ import com.ahao.haochat.common.common.domain.vo.request.PageBaseReq;
 import com.ahao.haochat.common.common.domain.vo.response.CursorPageBaseResp;
 import com.ahao.haochat.common.common.domain.vo.response.PageBaseResp;
 import com.ahao.haochat.common.common.event.UserApplyEvent;
+import com.ahao.haochat.common.common.service.LockService;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.user.dao.UserApplyDao;
 import com.ahao.haochat.common.user.dao.UserDao;
@@ -72,6 +73,8 @@ public class FriendServiceImpl implements FriendService {
     private UserDao userDao;
     @Autowired
     private RoomFriendDao roomFriendDao;
+    @Autowired
+    private LockService lockService;
 
     /**
      * 检查
