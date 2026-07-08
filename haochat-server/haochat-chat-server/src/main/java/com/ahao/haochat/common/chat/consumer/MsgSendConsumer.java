@@ -10,6 +10,7 @@ import com.ahao.haochat.common.chat.domain.entity.RoomFriend;
 import com.ahao.haochat.common.chat.domain.enums.RoomTypeEnum;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatMessageResp;
 import com.ahao.haochat.common.chat.service.ChatService;
+import com.ahao.haochat.common.chat.service.ContactRefreshBuffer;
 import com.ahao.haochat.common.chat.service.WeChatMsgOperationService;
 import com.ahao.haochat.common.chat.service.cache.GroupMemberCache;
 import com.ahao.haochat.common.chat.service.cache.HotRoomCache;
@@ -73,6 +74,8 @@ public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
     private HotRoomCache hotRoomCache;
     @Autowired
     private PushService pushService;
+    @Autowired
+    private ContactRefreshBuffer contactRefreshBuffer;
 
     @Override
     public void onMessage(MsgSendMessageDTO dto) {
@@ -101,15 +104,9 @@ public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
             //更新热门群聊时间-redis
             hotRoomCache.refreshActiveTime(room.getId(), message.getCreateTime());
         } else {
-            List<Long> memberUidList = new ArrayList<>();
-            if (Objects.equals(room.getType(), RoomTypeEnum.GROUP.getType())) {//普通群聊
-                memberUidList = groupMemberCache.getMemberUidList(room.getId());
-            } else if (Objects.equals(room.getType(), RoomTypeEnum.FRIEND.getType())) {//单聊
-                RoomFriend roomFriend = roomFriendDao.getByRoomId(room.getId());
-                memberUidList = Arrays.asList(roomFriend.getUid1(), roomFriend.getUid2());
-            }
-            //更新所有群成员的会话时间
-            contactDao.refreshOrCreateActiveTime(room.getId(), memberUidList, message.getId(), message.getCreateTime());
+            //全员会话刷新走合并缓冲：同房间窗口期内多条消息只刷一次（写扩散去抖，
+            //N 人群从"每条消息 N 行 upsert"降为"每窗口 N 行"）。合并语义见 ContactRefreshBuffer
+            contactRefreshBuffer.submit(room.getId(), message.getId(), message.getCreateTime());
         }
     }
 

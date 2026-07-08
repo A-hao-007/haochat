@@ -1,0 +1,49 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{scenario:readers}
+    ✓ 'p(95)<800' p(95)=104.84ms
+
+    http_req_duration{scenario:senders}
+    ✓ 'p(95)<1500' p(95)=954.82ms
+
+    http_req_failed{scenario:readers}
+    ✓ 'rate<0.02' rate=0.00%
+
+    http_req_failed{scenario:senders}
+    ✓ 'rate<0.05' rate=3.97%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 22039  102.811974/s
+    checks_succeeded...: 99.12% 21847 out of 22039
+    checks_failed......: 0.87%  192 out of 22039
+
+    ✗ send ok
+      ↳  96% — ✓ 4643 / ✗ 192
+    ✓ read ok
+
+    HTTP
+    http_req_duration..............: avg=84.46ms  min=2.25ms   med=9.82ms   max=2.22s p(90)=88.91ms  p(95)=395.47ms
+      { expected_response:true }...: avg=84.04ms  min=3.85ms   med=9.85ms   max=2.22s p(90)=87.96ms  p(95)=389.15ms
+      { scenario:readers }.........: avg=65.86ms  min=3.85ms   med=8.01ms   max=2.22s p(90)=39.16ms  p(95)=104.84ms
+      { scenario:senders }.........: avg=150.62ms min=2.25ms   med=14.76ms  max=2.18s p(90)=554.67ms p(95)=954.82ms
+    http_req_failed................: 0.87%  192 out of 22039
+      { scenario:readers }.........: 0.00%  0 out of 17204
+      { scenario:senders }.........: 3.97%  192 out of 4835
+    http_reqs......................: 22039  102.811974/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.74s    min=304.22ms med=311.07ms max=8.68s p(90)=6.51s    p(95)=6.6s    
+    iterations.....................: 22039  102.811974/s
+    vus............................: 13     min=13           max=230
+    vus_max........................: 230    min=230          max=230
+
+    NETWORK
+    data_received..................: 135 MB 629 kB/s
+    data_sent......................: 6.5 MB 30 kB/s
+
+
+
