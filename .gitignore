@@ -72,6 +72,9 @@ mybatis-generator-config.xml
 node_modules/
 dist/
 dist-ssr/
+dist.bak*/
+dist.old/
+.pnpm-store/
 coverage/
 *.local
 report.html
@@ -100,3 +103,7 @@ src/components.d.ts
 .aider*
 dump.rdb
 *.orig
+# 运维备份与手工源码备份不进版本库
+/backups/
+*.bak
+*.bak-*

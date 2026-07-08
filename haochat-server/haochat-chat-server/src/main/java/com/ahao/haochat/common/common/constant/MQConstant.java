@@ -12,12 +12,6 @@ public interface MQConstant {
     String SEND_MSG_GROUP = "chat_send_msg_group";
 
     /**
-     * push用户
-     */
-    String PUSH_TOPIC = "websocket_push";
-    String PUSH_GROUP = "websocket_push_group";
-
-    /**
      * (授权完成后)登录信息mq
      */
     String LOGIN_MSG_TOPIC = "user_login_send_msg";

@@ -1,38 +1,19 @@
 package com.ahao.haochat.common.chat.consumer;
 
-import com.ahao.haochat.common.chat.dao.ContactDao;
 import com.ahao.haochat.common.chat.dao.MessageDao;
 import com.ahao.haochat.common.chat.dao.RoomDao;
-import com.ahao.haochat.common.chat.dao.RoomFriendDao;
 import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chat.domain.entity.Room;
-import com.ahao.haochat.common.chat.domain.entity.RoomFriend;
-import com.ahao.haochat.common.chat.domain.enums.RoomTypeEnum;
-import com.ahao.haochat.common.chat.domain.vo.response.ChatMessageResp;
-import com.ahao.haochat.common.chat.service.ChatService;
 import com.ahao.haochat.common.chat.service.ContactRefreshBuffer;
-import com.ahao.haochat.common.chat.service.WeChatMsgOperationService;
-import com.ahao.haochat.common.chat.service.cache.GroupMemberCache;
 import com.ahao.haochat.common.chat.service.cache.HotRoomCache;
 import com.ahao.haochat.common.chat.service.cache.RoomCache;
-import com.ahao.haochat.common.chatai.service.IChatAIService;
 import com.ahao.haochat.common.common.constant.MQConstant;
 import com.ahao.haochat.common.common.domain.dto.MsgSendMessageDTO;
-import com.ahao.haochat.common.user.service.WebSocketService;
-import com.ahao.haochat.common.user.service.adapter.WSAdapter;
-import com.ahao.haochat.common.user.service.cache.UserCache;
-import com.ahao.haochat.common.user.service.impl.PushService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
 
 /**
  * Description: 发送消息更新房间收信箱，并同步给房间成员信箱
@@ -47,33 +28,13 @@ import java.util.Objects;
 @Slf4j
 public class MsgSendConsumer implements RocketMQListener<MsgSendMessageDTO> {
     @Autowired
-    private WebSocketService webSocketService;
-    @Autowired
-    private ChatService chatService;
-    @Autowired
     private MessageDao messageDao;
-    @Autowired
-    private IChatAIService openAIService;
-    @Autowired
-    WeChatMsgOperationService weChatMsgOperationService;
     @Autowired
     private RoomCache roomCache;
     @Autowired
     private RoomDao roomDao;
     @Autowired
-    private GroupMemberCache groupMemberCache;
-    @Autowired
-    private UserCache userCache;
-    @Autowired
-    private RoomFriendDao roomFriendDao;
-    @Autowired
-    private ApplicationEventPublisher applicationEventPublisher;
-    @Autowired
-    private ContactDao contactDao;
-    @Autowired
     private HotRoomCache hotRoomCache;
-    @Autowired
-    private PushService pushService;
     @Autowired
     private ContactRefreshBuffer contactRefreshBuffer;
 
