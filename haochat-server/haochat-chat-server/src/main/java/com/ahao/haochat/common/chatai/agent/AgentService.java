@@ -13,7 +13,12 @@ import com.ahao.haochat.common.chatai.log.AiCallLogDao;
 import com.ahao.haochat.common.chatai.mcp.McpTool;
 import com.ahao.haochat.common.chatai.mcp.McpToolRegistry;
 import com.ahao.haochat.common.chatai.properties.AiPromptProperties;
+import com.ahao.haochat.common.chatai.memory.AiLongTermMemoryService;
+import com.ahao.haochat.common.chatai.properties.AiProviderProperties;
+import com.ahao.haochat.common.chatai.service.AiModelGateway;
+import com.ahao.haochat.common.chatai.service.AiPromptService;
 import com.ahao.haochat.common.chatai.properties.DeepSeekProperties;
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.ahao.haochat.common.user.domain.entity.User;
 import com.ahao.haochat.common.user.domain.enums.WSBaseResp;
@@ -98,10 +103,17 @@ public class AgentService {
     private McpToolRegistry mcpToolRegistry;
     @Autowired
     private AiPromptProperties promptProperties;
+    @Autowired
+    private AiLongTermMemoryService longTermMemoryService;
+    @Autowired
+    private AiProviderProperties providerProperties;
+    @Autowired
+    private AiModelGateway modelGateway;
+    @Autowired
+    private AiPromptService promptService;
 
     private static final Set<String> CONFIRM_WORDS = Set.of("确认", "是", "发布", "ok", "OK", "好的", "同意", "确定");
     private static final Set<String> CANCEL_WORDS = Set.of("取消", "算了", "不要", "cancel", "Cancel");
-    private static final String PROMPT_CACHE_KEY = "ai:system_prompt";
     private static final int PROMPT_CACHE_TTL_MINUTES = 5;
 
     private HaoChatAgent agent;
@@ -112,12 +124,13 @@ public class AgentService {
             log.info("DeepSeek 未配置有效Key，AgentService 不启用");
             return;
         }
+        AiProviderProperties.Provider provider = primaryProvider();
         StreamingChatModel streamingChatModel = OpenAiStreamingChatModel.builder()
-                .baseUrl(normalizeBaseUrl(props.getUrl()))
-                .apiKey(props.getKey())
-                .modelName(props.getModel())
+                .baseUrl(normalizeBaseUrl(provider.getBaseUrl()))
+                .apiKey(provider.getApiKey())
+                .modelName(provider.getModel())
                 .maxTokens(props.getMaxTokens())
-                .timeout(java.time.Duration.ofSeconds(props.getTimeout()))
+                .timeout(java.time.Duration.ofSeconds(provider.getTimeoutSeconds()))
                 .build();
         OpenAiTokenCountEstimator tokenEstimator = new OpenAiTokenCountEstimator(TOKEN_ESTIMATOR_MODEL);
 
@@ -135,7 +148,31 @@ public class AgentService {
     }
 
     private boolean isUse() {
-        return props.isUse() && StringUtils.isNotBlank(props.getKey());
+        return primaryProvider() != null;
+    }
+
+    private AiProviderProperties.Provider primaryProvider() {
+        AiProviderProperties.Provider primary = providerProperties.getPrimary();
+        if (isConfigured(primary)) {
+            return primary;
+        }
+        if (!props.isUse() || StringUtils.isBlank(props.getKey())) {
+            return null;
+        }
+        AiProviderProperties.Provider legacy = new AiProviderProperties.Provider();
+        legacy.setEnabled(true);
+        legacy.setBaseUrl(props.getUrl());
+        legacy.setApiKey(props.getKey());
+        legacy.setModel(props.getModel());
+        legacy.setTimeoutSeconds(props.getTimeout());
+        return legacy;
+    }
+
+    private boolean isConfigured(AiProviderProperties.Provider provider) {
+        return provider != null && provider.isEnabled()
+                && StringUtils.isNotBlank(provider.getBaseUrl())
+                && StringUtils.isNotBlank(provider.getApiKey())
+                && StringUtils.isNotBlank(provider.getModel());
     }
 
     private String normalizeBaseUrl(String url) {
@@ -223,7 +260,8 @@ public class AgentService {
 
         TokenStream tokenStream;
         try {
-            tokenStream = agent.chat(memoryId, "[" + senderName + "]: " + triggerMsg.getContent());
+            String userMessage = longTermMemoryService.enrichUserMessage(roomId, callerUid, triggerMsg.getContent());
+            tokenStream = agent.chat(memoryId, "[" + senderName + "]: " + userMessage);
         } catch (Exception e) {
             log.warn("发起AI流式对话失败 roomId={} uid={}", roomId, callerUid, e);
             sendReply(roomId, triggerMsg, "AI暂时遇到问题，请稍后重试~", false);
@@ -275,7 +313,8 @@ public class AgentService {
                             // 已经生成了部分内容，残缺回复也比完全没反应强
                             sendReply(roomId, triggerMsg, text, false);
                         } else {
-                            sendReply(roomId, triggerMsg, "AI暂时遇到问题，请稍后重试~", false);
+                            // No token was emitted: retry the OpenAI-compatible primary endpoint and then the fallback provider.
+                            sendReply(roomId, triggerMsg, fallbackReply(triggerMsg.getContent()), false);
                         }
                         logCall(callerUid, roomId, triggerMsg.getContent(), text, toolCallNames,
                                 (int) (System.currentTimeMillis() - start), err.getMessage(), needsConfirmationFlag.get(), null);
@@ -378,7 +417,7 @@ public class AgentService {
     }
 
     private String rateLimitKey(Long uid) {
-        return "ai:limit:" + uid;
+        return RedisKey.getKey(RedisKey.AI_RATE_LIMIT_STRING, uid);
     }
 
     /** [AI-CONTEXT] systemMessageProvider 收到的是 memoryId（"roomId:uid"），从中解析出 roomId 拼接会话成员映射表 */
@@ -423,14 +462,23 @@ public class AgentService {
      * 缓存过期后会自动回落到配置值——不是为了性能（读配置对象本身没有性能问题）。
      */
     private String basePrompt() {
-        String cached = RedisUtils.getStr(PROMPT_CACHE_KEY);
+        String cached = RedisUtils.getStr(RedisKey.getKey(RedisKey.AI_SYSTEM_PROMPT_STRING));
         if (StringUtils.isNotBlank(cached)) {
             return cached;
         }
-        String prompt = StringUtils.isNotBlank(promptProperties.getSystemPrompt())
+        String fallback = StringUtils.isNotBlank(promptProperties.getSystemPrompt())
                 ? promptProperties.getSystemPrompt() : DEFAULT_PROMPT;
-        RedisUtils.set(PROMPT_CACHE_KEY, prompt, PROMPT_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        String prompt = promptService.resolve(AiPromptService.SYSTEM, fallback);
+        RedisUtils.set(RedisKey.getKey(RedisKey.AI_SYSTEM_PROMPT_STRING), prompt, PROMPT_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         return prompt;
+    }
+
+    private String fallbackReply(String userInput) {
+        try {
+            return modelGateway.complete(basePrompt(), userInput);
+        } catch (Exception ignored) {
+            return "AI暂时遇到问题，请稍后重试~";
+        }
     }
 
     /**

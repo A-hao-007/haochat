@@ -12,39 +12,52 @@
   .bg-particles {
     position: absolute;
     inset: 0;
-    pointer-events: none;
     z-index: 0;
+    pointer-events: none;
 
     .particle {
       position: absolute;
       bottom: -20px;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 15%);
       border-radius: 50%;
       animation: float-up linear infinite;
     }
   }
 
   @keyframes float-up {
-    0% { transform: translateY(0) scale(1); opacity: 0; }
-    10% { opacity: 0.6; }
-    90% { opacity: 0.1; }
-    100% { transform: translateY(-110vh) scale(0.3); opacity: 0; }
+    0% {
+      opacity: 0;
+      transform: translateY(0) scale(1);
+    }
+
+    10% {
+      opacity: 0.6;
+    }
+
+    90% {
+      opacity: 0.1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(-110vh) scale(0.3);
+    }
   }
 
   // ========================
   // 左侧品牌展示区
   // ========================
   .login-left {
-    flex: 1;
+    z-index: 1;
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
-    z-index: 1;
     padding: 60px;
 
     .brand-content {
-      text-align: center;
       max-width: 420px;
+      text-align: center;
       animation: fadeInLeft 0.8s ease-out;
 
       .brand-logo-wrapper {
@@ -54,9 +67,9 @@
         .brand-logo {
           width: 100px;
           height: 100px;
-          border-radius: 24px;
-          box-shadow: 0 8px 32px rgba(29, 144, 245, 0.4);
           object-fit: cover;
+          border-radius: 24px;
+          box-shadow: 0 8px 32px rgba(29, 144, 245, 40%);
         }
       }
 
@@ -65,42 +78,45 @@
         font-size: 42px;
         font-weight: 700;
         color: #fff;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 30%);
         letter-spacing: 2px;
-        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
       }
 
       .brand-slogan {
         margin-top: 8px;
         font-size: 16px;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 70%);
         letter-spacing: 1px;
       }
 
       .brand-features {
-        margin-top: 40px;
         display: flex;
         flex-direction: column;
         gap: 14px;
+        margin-top: 40px;
 
         .feature-item {
           display: flex;
-          align-items: center;
           gap: 12px;
+          align-items: center;
           padding: 10px 20px;
-          background: rgba(255, 255, 255, 0.06);
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.85);
           font-size: 15px;
+          color: rgba(255, 255, 255, 85%);
+          background: rgba(255, 255, 255, 6%);
+          border: 1px solid rgba(255, 255, 255, 8%);
+          border-radius: 12px;
           transition: all 0.3s ease;
 
           &:hover {
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 12%);
+            border-color: rgba(29, 144, 245, 40%);
             transform: translateX(6px);
-            border-color: rgba(29, 144, 245, 0.4);
           }
 
-          .feature-icon { font-size: 20px; flex-shrink: 0; }
+          .feature-icon {
+            flex-shrink: 0;
+            font-size: 20px;
+          }
         }
       }
     }
@@ -110,20 +126,20 @@
   // 右侧表单区
   // ========================
   .login-right {
-    flex: 1;
+    z-index: 1;
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
-    z-index: 1;
     padding: 60px;
 
     .auth-card {
       width: 100%;
       max-width: 400px;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 20px;
       padding: 36px 36px 32px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 95%);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 30%), 0 0 0 1px rgba(255, 255, 255, 10%);
       animation: fadeInRight 0.8s ease-out;
 
       .auth-tabs {
@@ -132,33 +148,35 @@
         border-bottom: 2px solid #eee;
 
         .tab-btn {
+          position: relative;
           flex: 1;
           padding: 12px 0;
           font-size: 16px;
           font-weight: 600;
           color: #999;
+          cursor: pointer;
           background: none;
           border: none;
-          cursor: pointer;
           transition: all 0.3s ease;
-          position: relative;
 
           &.active {
             color: var(--color-primary);
 
             &::after {
-              content: '';
               position: absolute;
+              right: 20%;
               bottom: -2px;
               left: 20%;
-              right: 20%;
               height: 2px;
+              content: '';
               background: var(--color-primary);
               border-radius: 2px;
             }
           }
 
-          &:hover { color: var(--color-primary); }
+          &:hover {
+            color: var(--color-primary);
+          }
         }
       }
 
@@ -186,50 +204,50 @@
             transition: all 0.25s ease;
 
             &::placeholder {
-              color: #bbb;
               font-size: 13px;
+              color: #bbb;
             }
 
             &:focus {
-              border-color: var(--color-primary);
               background: #fff;
-              box-shadow: 0 0 0 3px rgba(29, 144, 245, 0.1);
+              border-color: var(--color-primary);
+              box-shadow: 0 0 0 3px rgba(29, 144, 245, 10%);
             }
           }
         }
 
         .submit-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 100%;
+          min-height: 48px;
           padding: 13px;
           margin-top: 8px;
           font-size: 16px;
           font-weight: 600;
           color: #fff;
+          cursor: pointer;
           background: var(--color-primary);
           border: none;
           border-radius: 10px;
-          cursor: pointer;
           transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 48px;
 
           &:hover:not(:disabled) {
             background: var(--color-primary-hover, #1a7fd9);
+            box-shadow: 0 6px 20px rgba(29, 144, 245, 40%);
             transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(29, 144, 245, 0.4);
           }
 
           &:disabled {
-            opacity: 0.7;
             cursor: not-allowed;
+            opacity: 0.7;
           }
 
           .btn-loading {
             width: 22px;
             height: 22px;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255, 255, 255, 30%);
             border-top-color: #fff;
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
@@ -241,17 +259,21 @@
 
   .login-copyright {
     position: absolute;
+    right: 0;
     bottom: 20px;
-    left: 0; right: 0;
-    text-align: center;
+    left: 0;
     z-index: 1;
+    text-align: center;
 
     a {
       font-size: 12px;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255, 255, 255, 40%);
       text-decoration: none;
       transition: color 0.3s;
-      &:hover { color: rgba(255,255,255,0.7); }
+
+      &:hover {
+        color: rgba(255, 255, 255, 70%);
+      }
     }
   }
 }
@@ -260,19 +282,44 @@
 // 动画
 // ========================
 @keyframes fadeInLeft {
-  from { opacity: 0; transform: translateX(-40px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
+
 @keyframes fadeInRight {
-  from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
+
 @keyframes logoBreath {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
 }
+
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // ========================
@@ -288,11 +335,23 @@
 
       .brand-content {
         .brand-logo-wrapper .brand-logo {
-          width: 56px; height: 56px; border-radius: 14px;
+          width: 56px;
+          height: 56px;
+          border-radius: 14px;
         }
-        .brand-name { font-size: 24px; margin-top: 8px; }
-        .brand-slogan { font-size: 12px; }
-        .brand-features { display: none; }
+
+        .brand-name {
+          margin-top: 8px;
+          font-size: 24px;
+        }
+
+        .brand-slogan {
+          font-size: 12px;
+        }
+
+        .brand-features {
+          display: none;
+        }
       }
     }
 

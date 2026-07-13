@@ -37,8 +37,13 @@ public class RedisUtils {
                     "end ";
 
     public static Long inc(String key, int time, TimeUnit unit) {
-        RedisScript<Long> redisScript = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
-        return stringRedisTemplate.execute(redisScript, Collections.singletonList(key), String.valueOf(unit.toSeconds(time)));
+        try {
+            RedisScript<Long> redisScript = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
+            return stringRedisTemplate.execute(redisScript, Collections.singletonList(key), String.valueOf(unit.toSeconds(time)));
+        } catch (Exception e) {
+            log.error("redis inc failed, key={}", key, e);
+            return null;
+        }
     }
 
     /**
@@ -48,13 +53,14 @@ public class RedisUtils {
      * @param time 时间(秒)
      */
     public static Integer integerInc(String key, int time, TimeUnit unit) {
-        RedisScript<Long> redisScript = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
-        Long result = stringRedisTemplate.execute(redisScript, Collections.singletonList(key), String.valueOf(unit.toSeconds(time)));
         try {
+            RedisScript<Long> redisScript = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
+            Long result = stringRedisTemplate.execute(redisScript, Collections.singletonList(key), String.valueOf(unit.toSeconds(time)));
             return Integer.parseInt(result.toString());
         } catch (Exception e) {
             RedisUtils.del(key);
-            throw e;
+            log.error("redis integer inc failed, key={}", key, e);
+            return null;
         }
     }
 
@@ -198,30 +204,40 @@ public class RedisUtils {
      * @param keys
      */
     public static void del(String... keys) {
-        if (keys != null && keys.length > 0) {
-            if (keys.length == 1) {
-                Boolean result = stringRedisTemplate.delete(keys[0]);
-                log.debug("--------------------------------------------");
-                log.debug("删除缓存：" + keys[0] + "，结果：" + result);
-            } else {
-                Set<String> keySet = new HashSet<>();
-                for (String key : keys) {
-                    Set<String> stringSet = stringRedisTemplate.keys(key);
-                    if (Objects.nonNull(stringSet) && !stringSet.isEmpty()) {
-                        keySet.addAll(stringSet);
+        try {
+            if (keys != null && keys.length > 0) {
+                if (keys.length == 1) {
+                    Boolean result = stringRedisTemplate.delete(keys[0]);
+                    log.debug("--------------------------------------------");
+                    log.debug("删除缓存：" + keys[0] + "，结果：" + result);
+                } else {
+                    Set<String> keySet = new HashSet<>();
+                    for (String key : keys) {
+                        Set<String> stringSet = stringRedisTemplate.keys(key);
+                        if (Objects.nonNull(stringSet) && !stringSet.isEmpty()) {
+                            keySet.addAll(stringSet);
+                        }
                     }
+                    Long count = stringRedisTemplate.delete(keySet);
+                    log.debug("--------------------------------------------");
+                    log.debug("成功删除缓存：" + keySet);
+                    log.debug("缓存删除数量：" + count + "个");
                 }
-                Long count = stringRedisTemplate.delete(keySet);
                 log.debug("--------------------------------------------");
-                log.debug("成功删除缓存：" + keySet);
-                log.debug("缓存删除数量：" + count + "个");
             }
-            log.debug("--------------------------------------------");
+        } catch (Exception e) {
+            log.error("redis delete failed, keys={}", Arrays.toString(keys), e);
         }
     }
 
     public static void del(List<String> keys) {
-        stringRedisTemplate.delete(keys);
+        try {
+            if (keys != null && !keys.isEmpty()) {
+                stringRedisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            log.error("redis batch delete failed, keys={}", keys, e);
+        }
     }
 
     // ============================String=============================
@@ -233,7 +249,12 @@ public class RedisUtils {
      * @return 值
      */
     private static String get(String key) {
-        return key == null ? null : stringRedisTemplate.opsForValue().get(key);
+        try {
+            return key == null ? null : stringRedisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.error("redis get failed, key={}", key, e);
+            return null;
+        }
     }
 
     /**
@@ -263,11 +284,23 @@ public class RedisUtils {
     }
 
     public static <T> List<T> mget(Collection<String> keys, Class<T> tClass) {
-        List<String> list = stringRedisTemplate.opsForValue().multiGet(keys);
-        if (Objects.isNull(list)) {
+        if (keys == null || keys.isEmpty()) {
             return new ArrayList<>();
         }
-        return list.stream().map(o -> toBeanOrNull(o, tClass)).collect(Collectors.toList());
+        try {
+            List<String> list = stringRedisTemplate.opsForValue().multiGet(keys);
+            if (Objects.isNull(list)) {
+                return nullList(keys.size());
+            }
+            return list.stream().map(o -> toBeanOrNull(o, tClass)).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("redis batch get failed, keys={}", keys, e);
+            return nullList(keys.size());
+        }
+    }
+
+    private static <T> List<T> nullList(int size) {
+        return new ArrayList<>(Collections.nCopies(size, null));
     }
 
     static <T> T toBeanOrNull(String json, Class<T> tClass) {
@@ -279,11 +312,18 @@ public class RedisUtils {
     }
 
     public static <T> void mset(Map<String, T> map, long time) {
-        Map<String, String> collect = map.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, (e) -> objToStr(e.getValue())));
-        stringRedisTemplate.opsForValue().multiSet(collect);
-        map.forEach((key, value) -> {
-            expire(key, time);
-        });
+        if (map == null || map.isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, String> collect = map.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, (e) -> objToStr(e.getValue())));
+            stringRedisTemplate.opsForValue().multiSet(collect);
+            map.forEach((key, value) -> {
+                expire(key, time);
+            });
+        } catch (Exception e) {
+            log.error("redis batch set failed, keys={}", map.keySet(), e);
+        }
     }
 
 
@@ -329,6 +369,17 @@ public class RedisUtils {
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             return false;
+        }
+    }
+
+    /** Atomic deduplication marker. A null result means Redis was unavailable. */
+    public static Boolean setIfAbsent(String key, Object value, long time, TimeUnit timeUnit) {
+        try {
+            Boolean created = stringRedisTemplate.opsForValue().setIfAbsent(key, objToStr(value), time, timeUnit);
+            return Boolean.TRUE.equals(created);
+        } catch (Exception e) {
+            log.error("redis setIfAbsent failed, key={}", key, e);
+            return null;
         }
     }
 
@@ -787,7 +838,12 @@ public class RedisUtils {
      * @return
      */
     public static Boolean zAdd(String key, String value, double score) {
-        return stringRedisTemplate.opsForZSet().add(key, value, score);
+        try {
+            return stringRedisTemplate.opsForZSet().add(key, value, score);
+        } catch (Exception e) {
+            log.error("redis zadd failed, key={}", key, e);
+            return false;
+        }
     }
 
     public static Boolean zAdd(String key, Object value, double score) {
@@ -795,7 +851,12 @@ public class RedisUtils {
     }
 
     public static Boolean zIsMember(String key, Object value) {
-        return Objects.nonNull(stringRedisTemplate.opsForZSet().score(key, value.toString()));
+        try {
+            return Objects.nonNull(stringRedisTemplate.opsForZSet().score(key, value.toString()));
+        } catch (Exception e) {
+            log.error("redis zismember failed, key={}", key, e);
+            return false;
+        }
     }
 
     /**
@@ -813,7 +874,12 @@ public class RedisUtils {
      * @return
      */
     public static Long zRemove(String key, Object... values) {
-        return stringRedisTemplate.opsForZSet().remove(key, values);
+        try {
+            return stringRedisTemplate.opsForZSet().remove(key, values);
+        } catch (Exception e) {
+            log.error("redis zremove failed, key={}", key, e);
+            return 0L;
+        }
     }
 
     public static Long zRemove(String key, Object value) {
@@ -821,7 +887,12 @@ public class RedisUtils {
     }
 
     public static Long zRemove(String key, String value) {
-        return stringRedisTemplate.opsForZSet().remove(key, value);
+        try {
+            return stringRedisTemplate.opsForZSet().remove(key, value);
+        } catch (Exception e) {
+            log.error("redis zremove failed, key={}", key, e);
+            return 0L;
+        }
     }
 
     /**
@@ -871,7 +942,13 @@ public class RedisUtils {
     }
 
     public static Set<String> zAll(String key) {
-        return stringRedisTemplate.opsForZSet().range(key, 0, -1);
+        try {
+            Set<String> result = stringRedisTemplate.opsForZSet().range(key, 0, -1);
+            return result == null ? Collections.emptySet() : result;
+        } catch (Exception e) {
+            log.error("redis zall failed, key={}", key, e);
+            return Collections.emptySet();
+        }
     }
 
     /**
@@ -909,13 +986,19 @@ public class RedisUtils {
      */
     public static Set<TypedTuple<String>> zRangeByScoreWithScores(String key,
                                                                   Double min, Double max) {
-        if (Objects.isNull(min)) {
-            min = Double.MIN_VALUE;
+        try {
+            if (Objects.isNull(min)) {
+                min = Double.MIN_VALUE;
+            }
+            if (Objects.isNull(max)) {
+                max = Double.MAX_VALUE;
+            }
+            Set<TypedTuple<String>> result = stringRedisTemplate.opsForZSet().rangeByScoreWithScores(key, min, max);
+            return result == null ? Collections.emptySet() : result;
+        } catch (Exception e) {
+            log.error("redis zrange by score failed, key={}", key, e);
+            return Collections.emptySet();
         }
-        if (Objects.isNull(max)) {
-            max = Double.MAX_VALUE;
-        }
-        return stringRedisTemplate.opsForZSet().rangeByScoreWithScores(key, min, max);
     }
 
     /**
@@ -928,8 +1011,14 @@ public class RedisUtils {
      */
     public static Set<TypedTuple<String>> zRangeByScoreWithScores(String key,
                                                                   double min, double max, long start, long end) {
-        return stringRedisTemplate.opsForZSet().rangeByScoreWithScores(key, min, max,
-                start, end);
+        try {
+            Set<TypedTuple<String>> result = stringRedisTemplate.opsForZSet().rangeByScoreWithScores(key, min, max,
+                    start, end);
+            return result == null ? Collections.emptySet() : result;
+        } catch (Exception e) {
+            log.error("redis zrange by score failed, key={}", key, e);
+            return Collections.emptySet();
+        }
     }
 
     /**
@@ -967,8 +1056,14 @@ public class RedisUtils {
      */
     public static Set<TypedTuple<String>> zReverseRangeWithScores(String key,
                                                                   long pageSize) {
-        return stringRedisTemplate.opsForZSet().reverseRangeByScoreWithScores(key, Double.MIN_VALUE,
-                Double.MAX_VALUE, 0, pageSize);
+        try {
+            Set<TypedTuple<String>> result = stringRedisTemplate.opsForZSet().reverseRangeByScoreWithScores(key, Double.MIN_VALUE,
+                    Double.MAX_VALUE, 0, pageSize);
+            return result == null ? Collections.emptySet() : result;
+        } catch (Exception e) {
+            log.error("redis zreverse range failed, key={}", key, e);
+            return Collections.emptySet();
+        }
     }
 
     /**
@@ -979,8 +1074,14 @@ public class RedisUtils {
      */
     public static Set<TypedTuple<String>> zReverseRangeByScoreWithScores(String key,
                                                                          double max, long pageSize) {
-        return stringRedisTemplate.opsForZSet().reverseRangeByScoreWithScores(key, Double.MIN_VALUE, max,
-                1, pageSize);
+        try {
+            Set<TypedTuple<String>> result = stringRedisTemplate.opsForZSet().reverseRangeByScoreWithScores(key, Double.MIN_VALUE, max,
+                    1, pageSize);
+            return result == null ? Collections.emptySet() : result;
+        } catch (Exception e) {
+            log.error("redis zreverse range by score failed, key={}", key, e);
+            return Collections.emptySet();
+        }
     }
 
 //    /**
@@ -1040,7 +1141,13 @@ public class RedisUtils {
      * @return
      */
     public static Long zCard(String key) {
-        return stringRedisTemplate.opsForZSet().zCard(key);
+        try {
+            Long result = stringRedisTemplate.opsForZSet().zCard(key);
+            return result == null ? 0L : result;
+        } catch (Exception e) {
+            log.error("redis zcard failed, key={}", key, e);
+            return 0L;
+        }
     }
 
     /**

@@ -74,8 +74,8 @@
 
 .my-nickname-row {
   display: flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   padding-bottom: 8px;
   font-size: 12px;
   color: var(--font-light, #9aa8bb);
@@ -87,8 +87,8 @@
   }
 
   .my-nickname-edit {
-    cursor: pointer;
     flex-shrink: 0;
+    cursor: pointer;
 
     &:hover {
       color: var(--color-primary);

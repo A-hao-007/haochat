@@ -8,6 +8,7 @@ import com.ahao.haochat.common.chat.domain.entity.GroupMember;
 import com.ahao.haochat.common.chat.domain.entity.Room;
 import com.ahao.haochat.common.chat.domain.entity.RoomFriend;
 import com.ahao.haochat.common.chat.domain.entity.RoomGroup;
+import com.ahao.haochat.common.chat.domain.enums.GroupMemberStatusEnum;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleEnum;
 import com.ahao.haochat.common.chat.domain.enums.RoomTypeEnum;
 import com.ahao.haochat.common.chat.service.RoomService;
@@ -85,6 +86,7 @@ public class RoomServiceImpl implements RoomService {
         //插入群主
         GroupMember leader = GroupMember.builder()
                 .role(GroupRoleEnum.LEADER.getType())
+                .status(GroupMemberStatusEnum.NORMAL.getStatus())
                 .groupId(roomGroup.getId())
                 .uid(uid)
                 .build();

@@ -5,6 +5,8 @@ import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chat.domain.entity.msg.ImgMsgDTO;
 import com.ahao.haochat.common.chat.domain.entity.msg.MessageExtra;
 import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
+import com.ahao.haochat.common.file.domain.FileScene;
+import com.ahao.haochat.common.file.service.FileAssetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +21,8 @@ import java.util.Optional;
 public class ImgMsgHandler extends AbstractMsgHandler<ImgMsgDTO> {
     @Autowired
     private MessageDao messageDao;
+    @Autowired
+    private FileAssetService fileAssetService;
 
     @Override
     MessageTypeEnum getMsgTypeEnum() {
@@ -33,6 +37,11 @@ public class ImgMsgHandler extends AbstractMsgHandler<ImgMsgDTO> {
         update.setExtra(extra);
         extra.setImgMsgDTO(body);
         messageDao.updateById(update);
+    }
+
+    @Override
+    protected void checkMsg(ImgMsgDTO body, Long roomId, Long uid) {
+        fileAssetService.assertAttachable(uid, roomId, body.getAssetId(), FileScene.CHAT_IMAGE);
     }
 
     @Override

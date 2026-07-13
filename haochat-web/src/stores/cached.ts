@@ -107,7 +107,9 @@ export const useCachedStore = defineStore(
     // 根据用户名关键字过滤用户，
     // FIXME 是否需要过滤自己
     const filterUsers = (searchKey: string) => {
-      return currentAtUsersList.value?.filter((item: BaseUserItem) => item.name?.startsWith(searchKey))
+      return currentAtUsersList.value?.filter((item: BaseUserItem) =>
+        item.name?.startsWith(searchKey),
+      )
     }
 
     /**

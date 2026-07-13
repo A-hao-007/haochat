@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 
 /** 文件信息类型 */
 export type FileInfoType = {
+  assetId?: number
   name: string
   type: string
   size: number
@@ -40,33 +41,33 @@ export const useUpload = () => {
    */
   const upload = async (url: string, file: File, inner?: boolean) => {
     isUploading.value = true
-
-    const xhr = new XMLHttpRequest()
-    xhr.open('PUT', url, true)
-    xhr.setRequestHeader('Content-Type', file.type)
-    xhr.upload.onprogress = function (e) {
-      if (!inner) {
-        progress.value = Math.round((e.loaded / e.total) * 100)
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', url, true)
+      xhr.setRequestHeader('Content-Type', file.type)
+      xhr.upload.onprogress = function (e) {
+        if (!inner) {
+          progress.value = Math.round((e.loaded / e.total) * 100)
+        }
       }
-    }
-    xhr.onload = function () {
-      isUploading.value = false
-      if (inner) return
-      if (xhr.status === 200) {
-        trigger('success')
-      } else {
-        trigger('fail')
+      xhr.onload = function () {
+        isUploading.value = false
+        if (xhr.status === 200) {
+          resolve()
+        } else {
+          reject(new Error('upload failed'))
+        }
       }
-    }
-    xhr.onerror = function () {
-      isUploading.value = false
-      if (!inner) trigger('fail')
-    }
-    xhr.onabort = function () {
-      isUploading.value = false
-      if (!inner) trigger('fail')
-    }
-    xhr.send(file)
+      xhr.onerror = function () {
+        isUploading.value = false
+        reject(new Error('upload network error'))
+      }
+      xhr.onabort = function () {
+        isUploading.value = false
+        reject(new Error('upload aborted'))
+      }
+      xhr.send(file)
+    })
   }
   /**
    * 获取视频第一帧
@@ -210,15 +211,52 @@ export const useUpload = () => {
       return
     }
 
-    const { downloadUrl, uploadUrl } = await apis
-      .getUploadUrl({ fileName: info.name, scene: '1' })
-      .send()
+    try {
+      const scene = addParams?.scene || (info.type.includes('image') ? 'chat-image' : 'chat-file')
+      const { assetId, uploadUrl } = await apis
+        .initFileUpload({
+          scene,
+          fileName: info.name,
+          contentType: info.type || 'application/octet-stream',
+          size: info.size,
+          roomId: addParams?.roomId,
+        })
+        .send()
 
-    if (uploadUrl && downloadUrl) {
-      fileInfo.value = { ...info, downloadUrl }
+      fileInfo.value = { ...info, assetId }
       onStart.trigger(fileInfo)
-      upload(uploadUrl, file)
-    } else {
+      let nextUploadUrl = uploadUrl
+      let downloadUrl = ''
+      let completed = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await upload(nextUploadUrl, file)
+          const completeResp = await apis.completeFileUpload(assetId).send()
+          downloadUrl = completeResp.downloadUrl
+          completed = true
+          break
+        } catch (e) {
+          if (attempt >= 1) throw e
+          const retryTicket = await apis.retryFileUpload(assetId).send()
+          if (retryTicket.downloadUrl) {
+            downloadUrl = retryTicket.downloadUrl
+            completed = true
+            break
+          }
+          if (!retryTicket.uploadUrl) throw e
+          nextUploadUrl = retryTicket.uploadUrl
+        }
+      }
+      if (!completed) throw new Error('upload failed')
+      fileInfo.value = { ...fileInfo.value, downloadUrl } as FileInfoType
+      trigger('success')
+    } catch {
+      if (fileInfo.value?.assetId) {
+        await apis
+          .cancelFileUpload(fileInfo.value.assetId)
+          .send()
+          .catch(() => undefined)
+      }
       trigger('fail')
     }
   }

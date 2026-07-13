@@ -54,6 +54,20 @@ public class GroupMember implements Serializable {
     private Integer role;
 
     /**
+     * 成员状态 0正常 1被移除 2主动退出
+     *
+     * @see com.ahao.haochat.common.chat.domain.enums.GroupMemberStatusEnum
+     */
+    @TableField("status")
+    private Integer status;
+
+    /**
+     * 禁言截止时间，空表示未禁言
+     */
+    @TableField("mute_end_time")
+    private Date muteEndTime;
+
+    /**
      * 群内昵称
      */
     @TableField("nickname")

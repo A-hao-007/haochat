@@ -13,7 +13,6 @@ $requiredFiles = @(
   "deploy/scripts/backup.sh",
   "deploy/scripts/restore.sh",
   "docs/deployment/oracle-free-vm.md",
-  "haochat-server/haochat-chat-server/src/main/resources/application.yml",
   "haochat-server/haochat-chat-server/src/main/resources/application-prod.properties",
   "haochat-web/.env.production"
 )
@@ -38,7 +37,9 @@ foreach ($key in @(
   "oss.endpoint",
   "rocketmq.name-server",
   "wx.mp.configs[0].app-id",
-  "haochat.deepseek.use"
+  "haochat.deepseek.use",
+  "haochat.ai.memory.enabled",
+  "haochat.ai.provider.primary.base-url"
 )) {
   if ($prod -notmatch [regex]::Escape($key)) {
     throw "application-prod.properties missing $key"
@@ -54,7 +55,9 @@ foreach ($key in @(
   "MYSQL_ROOT_PASSWORD",
   "REDIS_PASSWORD",
   "JWT_SECRET",
-  "MINIO_ROOT_PASSWORD"
+  "MINIO_ROOT_PASSWORD",
+  "AI_MEMORY_ENABLED",
+  "NEO4J_PASSWORD"
 )) {
   if ($env -notmatch "(?m)^$key=") {
     throw ".env.example missing $key"

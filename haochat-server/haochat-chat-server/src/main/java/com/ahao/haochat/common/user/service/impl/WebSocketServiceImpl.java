@@ -2,6 +2,7 @@ package com.ahao.haochat.common.user.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.json.JSONUtil;
 import com.ahao.haochat.common.common.config.ThreadPoolConfig;
 import com.ahao.haochat.common.common.constant.RedisKey;
@@ -76,10 +77,6 @@ public class WebSocketServiceImpl implements WebSocketService {
         return ONLINE_WS_MAP;
     }
 
-    /**
-     * redis保存loginCode的key
-     */
-    private static final String LOGIN_CODE = "loginCode";
     @Autowired
     private WxMpService wxMpService;
     @Autowired
@@ -123,10 +120,13 @@ public class WebSocketServiceImpl implements WebSocketService {
      * @return
      */
     private Integer generateLoginCode(Channel channel) {
-        int inc;
+        Integer inc;
         do {
             //本地cache时间必须比redis key过期时间短，否则会出现并发问题
-            inc = RedisUtils.integerInc(RedisKey.getKey(LOGIN_CODE), (int) EXPIRE_TIME.toMinutes(), TimeUnit.MINUTES);
+            inc = RedisUtils.integerInc(RedisKey.getKey(RedisKey.LOGIN_CODE_STRING), (int) EXPIRE_TIME.toMinutes(), TimeUnit.MINUTES);
+            if (inc == null) {
+                inc = RandomUtil.randomInt(100000, 999999);
+            }
         } while (WAIT_LOGIN_MAP.asMap().containsKey(inc));
         //储存一份在本地
         WAIT_LOGIN_MAP.put(inc, channel);

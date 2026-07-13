@@ -31,4 +31,7 @@ public class BaseFileDTO implements Serializable {
     @ApiModelProperty("下载地址")
     @NotBlank
     private String url;
+
+    @ApiModelProperty("file asset id")
+    private Long assetId;
 }

@@ -5,15 +5,15 @@
   width: 136px;
   padding: 16px 10px 24px;
   color: #23324a;
+  user-select: none;
   background: #fff;
   border-right: 1px solid #e4ebf3;
-  user-select: none;
 }
 
 .toolbar-brand {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 0 6px 16px;
 }
 
@@ -44,8 +44,8 @@
 
 .tool-link {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   height: 44px;
   padding: 0 10px;
   font-size: 14px;
@@ -78,23 +78,23 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 10px;
+  justify-content: flex-end;
 }
 
 .menu-item {
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   height: 42px;
   font-size: 14px;
   font-weight: 700;
   color: #0f8f77;
+  cursor: pointer;
   background: #eafff6;
   border: 1px solid #bcefdc;
   border-radius: 12px;
-  cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
 
   &:hover {
@@ -121,16 +121,16 @@
   font-size: 14px;
   font-weight: 600;
   color: #52627a;
+  cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: 12px;
-  cursor: pointer;
 }
 
 .profile-entry {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
   padding: 0 8px;
   background: #f8fbff;
   border: 1px solid #e2eaf4;
@@ -142,7 +142,7 @@
 
   &:hover {
     color: #ef4444;
-    background: rgba(239, 68, 68, 0.08);
+    background: rgba(239, 68, 68, 8%);
   }
 }
 
@@ -177,8 +177,8 @@
   }
 
   .tool-link {
-    width: 42px;
     justify-content: center;
+    width: 42px;
     padding: 0;
 
     span {

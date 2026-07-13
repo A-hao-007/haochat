@@ -56,22 +56,22 @@ const openAi = async () => {
   justify-content: center;
   width: 56px;
   height: 56px;
+  cursor: pointer;
   background: linear-gradient(135deg, #2f66e8, #5b8bff);
   border: none;
   border-radius: 50%;
-  box-shadow: 0 10px 28px rgba(47, 102, 232, 0.36);
-  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(47, 102, 232, 36%);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .ai-ball:hover {
+  box-shadow: 0 14px 34px rgba(47, 102, 232, 45%);
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 14px 34px rgba(47, 102, 232, 0.45);
 }
 
 .ai-ball.loading {
-  opacity: 0.7;
   cursor: default;
+  opacity: 0.7;
 }
 
 .ai-ball-icon {

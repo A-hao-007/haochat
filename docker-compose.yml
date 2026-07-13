@@ -55,6 +55,48 @@ services:
         limits:
           memory: 256M
 
+  qdrant:
+    profiles:
+      - ai-memory
+    image: qdrant/qdrant:v1.12.5
+    container_name: haochat-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6333/healthz >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  neo4j:
+    profiles:
+      - ai-memory
+    image: neo4j:5-community
+    container_name: haochat-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-change-neo4j-password}
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 384m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7474 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
   minio:
     image: minio/minio:latest
     container_name: haochat-minio
@@ -93,9 +135,20 @@ services:
       sleep 3 &&
       mc alias set haochat http://minio:${MINIO_API_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} &&
       mc mb haochat/${MINIO_BUCKET} --ignore-existing &&
-      mc anonymous set public haochat/${MINIO_BUCKET} &&
+      mc anonymous set none haochat/${MINIO_BUCKET} &&
+      mc anonymous set download haochat/${MINIO_BUCKET}/emoji &&
+      mc anonymous set download haochat/${MINIO_BUCKET}/chat &&
+      mc anonymous set download haochat/${MINIO_BUCKET}/asset/avatar &&
       echo 'MinIO init complete'
       "
+
+  clamav:
+    image: clamav/clamav:stable
+    container_name: haochat-clamav
+    restart: unless-stopped
+    profiles: ["file-security"]
+    expose:
+      - "3310"
 
   rocketmq-namesrv:
     image: apache/rocketmq:5.1.4
@@ -198,6 +251,10 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
+      FILE_VIRUS_SCAN_ENABLED: ${FILE_VIRUS_SCAN_ENABLED:-false}
+      FILE_VIRUS_SCAN_HOST: ${FILE_VIRUS_SCAN_HOST:-clamav}
+      FILE_VIRUS_SCAN_PORT: ${FILE_VIRUS_SCAN_PORT:-3310}
+      FILE_VIRUS_SCAN_TIMEOUT_MS: ${FILE_VIRUS_SCAN_TIMEOUT_MS:-5000}
 
       ROCKETMQ_NAME_SERVER: rocketmq-namesrv:9876
       ROCKETMQ_PRODUCER_GROUP: haochat-producer
@@ -211,6 +268,24 @@ services:
 
       DEEPSEEK_ENABLED: ${DEEPSEEK_ENABLED}
       DEEPSEEK_KEY: ${DEEPSEEK_KEY}
+
+      AI_MEMORY_ENABLED: ${AI_MEMORY_ENABLED:-false}
+      AI_QUERY_REWRITE_ENABLED: ${AI_QUERY_REWRITE_ENABLED:-true}
+      AI_PRIMARY_BASE_URL: ${AI_PRIMARY_BASE_URL:-https://api.deepseek.com/v1}
+      AI_PRIMARY_API_KEY: ${AI_PRIMARY_API_KEY:-}
+      AI_PRIMARY_MODEL: ${AI_PRIMARY_MODEL:-deepseek-chat}
+      AI_FALLBACK_ENABLED: ${AI_FALLBACK_ENABLED:-false}
+      AI_FALLBACK_BASE_URL: ${AI_FALLBACK_BASE_URL:-}
+      AI_FALLBACK_API_KEY: ${AI_FALLBACK_API_KEY:-}
+      AI_FALLBACK_MODEL: ${AI_FALLBACK_MODEL:-}
+      AI_EMBEDDING_ENABLED: ${AI_EMBEDDING_ENABLED:-false}
+      AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-}
+      AI_EMBEDDING_API_KEY: ${AI_EMBEDDING_API_KEY:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      NEO4J_URL: ${NEO4J_URL:-http://neo4j:7474}
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-change-neo4j-password}
 
       MAIL_HOST: ${MAIL_HOST}
       MAIL_PORT: ${MAIL_PORT}
@@ -289,3 +364,9 @@ volumes:
     name: haochat_caddy-data
   caddy-config:
     name: haochat_caddy-config
+  qdrant-data:
+    name: haochat_qdrant-data
+  neo4j-data:
+    name: haochat_neo4j-data
+  neo4j-logs:
+    name: haochat_neo4j-logs

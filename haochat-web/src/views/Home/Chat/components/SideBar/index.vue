@@ -25,7 +25,9 @@ const currentSession = computed(() => globalStore.currentSession)
 
 const sessionList = computed(() =>
   chatStore.sessionList.map((item) => {
-    const lastMsg = Array.from(chatStore.messageMap.get(item.roomId)?.values() || [])?.slice(-1)?.[0]
+    const lastMsg = Array.from(chatStore.messageMap.get(item.roomId)?.values() || [])?.slice(
+      -1,
+    )?.[0]
     let LastUserMsg = ''
     if (lastMsg) {
       const lastMsgUserName = useUserInfo(lastMsg.fromUser.uid)
@@ -59,7 +61,9 @@ const onContextMenu = (e: MouseEvent, roomId: number) => {
   contextMenu.value = { show: true, x: e.clientX, y: e.clientY, roomId }
 }
 
-const closeMenu = () => { contextMenu.value.show = false }
+const closeMenu = () => {
+  contextMenu.value.show = false
+}
 
 const togglePin = async () => {
   const sid = contextMenu.value.roomId
@@ -69,7 +73,9 @@ const togglePin = async () => {
     await apis.pinContact(sid, pinned).send()
     chatStore.updateSession(sid, { pinned: pinned ? 1 : 0 })
     ElMessage.success(pinned ? '已置顶' : '已取消置顶')
-  } catch { ElMessage.error('操作失败') }
+  } catch {
+    ElMessage.error('操作失败')
+  }
   closeMenu()
 }
 
@@ -81,7 +87,9 @@ const toggleMute = async () => {
     await apis.muteContact(sid, muted).send()
     chatStore.updateSession(sid, { muted: muted ? 1 : 0 })
     ElMessage.success(muted ? '已开启免打扰' : '已关闭免打扰')
-  } catch { ElMessage.error('操作失败') }
+  } catch {
+    ElMessage.error('操作失败')
+  }
   closeMenu()
 }
 
@@ -91,11 +99,15 @@ const deleteSession = async () => {
     await apis.deleteContact(sid).send()
     chatStore.removeContact(sid)
     ElMessage.success('会话已删除')
-  } catch { ElMessage.error('操作失败') }
+  } catch {
+    ElMessage.error('操作失败')
+  }
   closeMenu()
 }
 
-const load = () => { chatStore.getSessionList() }
+const load = () => {
+  chatStore.getSessionList()
+}
 </script>
 
 <template>
@@ -122,7 +134,10 @@ const load = () => { chatStore.getSessionList() }
         v-for="(item, index) in sessionList"
         :key="index"
         :data-room-id="item.roomId"
-        :class="['chat-message-item', { active: currentSession.roomId === item.roomId, pinned: item.pinned }]"
+        :class="[
+          'chat-message-item',
+          { active: currentSession.roomId === item.roomId, pinned: item.pinned },
+        ]"
         @click="onSelectSession(item.roomId, item.type)"
         @contextmenu="onContextMenu($event, item.roomId)"
       >
@@ -158,10 +173,7 @@ const load = () => { chatStore.getSessionList() }
       @click="closeMenu"
       @contextmenu.prevent="closeMenu"
     >
-      <div
-        class="context-menu"
-        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-      >
+      <div class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
         <div class="menu-item" @click="togglePin">📌 置顶/取消置顶</div>
         <div class="menu-item" @click="toggleMute">🔕 免打扰/取消</div>
         <div class="menu-item danger" @click="deleteSession">🗑️ 删除会话</div>
@@ -171,26 +183,63 @@ const load = () => { chatStore.getSessionList() }
 </template>
 
 <style lang="scss" src="./styles.scss" scoped />
+
 <style>
 .context-menu-overlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
 }
+
 .context-menu {
-  position: fixed; z-index: 10000;
-  background: var(--bg-glass); backdrop-filter: blur(12px);
-  border: 1px solid var(--border-light); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg); padding: 4px; min-width: 160px;
+  position: fixed;
+  z-index: 10000;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
 }
+
 .context-menu .menu-item {
-  padding: 8px 16px; font-size: 13px; color: var(--font-main);
-  cursor: pointer; border-radius: var(--radius-sm); transition: background var(--transition-fast);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--font-main);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
-.context-menu .menu-item:hover { background: var(--bg-hover); }
-.context-menu .menu-item.danger { color: #ef4444; }
-.context-menu .menu-item.danger:hover { background: rgba(239,68,68,0.1); }
-.pin-icon, .mute-icon { font-size: 11px; margin-left: 4px; }
-.info-top { display: flex; align-items: center; gap: 4px; }
-.chat-message-item.pinned { background: var(--bg-hover); }
+
+.context-menu .menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.context-menu .menu-item.danger {
+  color: #ef4444;
+}
+
+.context-menu .menu-item.danger:hover {
+  background: rgba(239, 68, 68, 10%);
+}
+
+.pin-icon,
+.mute-icon {
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.info-top {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.chat-message-item.pinned {
+  background: var(--bg-hover);
+}
+
 .badge-muted :deep(.el-badge__content) {
   background-color: var(--font-light) !important;
 }

@@ -489,7 +489,9 @@ export const useChatStore = defineStore('chat', () => {
     }
     const session = sessionList.find((item) => item.roomId === msg.message.roomId)
     if (session) {
-      session.text = `${msg.fromUser.username || msg.fromUser.uid}:${msg.message.body?.content || ''}`
+      session.text = `${msg.fromUser.username || msg.fromUser.uid}:${
+        msg.message.body?.content || ''
+      }`
     }
   }
   // 更新消息

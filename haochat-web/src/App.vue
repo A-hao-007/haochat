@@ -28,8 +28,11 @@ const isLoginPage = computed(() => route.path === '/login')
 }
 
 .app-wrapper:not(.is-login-page) {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 36%),
+  background: radial-gradient(
+      circle at 50% 20%,
+      rgba(255, 255, 255, 92%),
+      rgba(255, 255, 255, 0%) 36%
+    ),
     linear-gradient(180deg, #f7fbff 0%, #e8f0f8 100%);
 }
 </style>

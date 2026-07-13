@@ -14,10 +14,7 @@ defineProps<{
 <template>
   <div
     class="skeleton"
-    :class="[
-      `skeleton--${variant || 'text'}`,
-      { 'skeleton--animated': animated !== false },
-    ]"
+    :class="[`skeleton--${variant || 'text'}`, { 'skeleton--animated': animated !== false }]"
     :style="{
       width: typeof width === 'number' ? `${width}px` : width,
       height: typeof height === 'number' ? `${height}px` : height,
@@ -54,8 +51,8 @@ defineProps<{
   }
 
   &--card {
-    border-radius: var(--radius-md);
     height: 72px;
+    border-radius: var(--radius-md);
   }
 }
 
@@ -63,6 +60,7 @@ defineProps<{
   0% {
     background-position: 100% 50%;
   }
+
   100% {
     background-position: 0 50%;
   }

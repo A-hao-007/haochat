@@ -3,6 +3,7 @@ package com.ahao.haochat.common.chatai.handler;
 import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chatai.agent.AgentService;
 import com.ahao.haochat.common.chatai.properties.DeepSeekProperties;
+import com.ahao.haochat.common.chatai.properties.AiProviderProperties;
 import com.ahao.haochat.common.user.domain.vo.response.user.UserInfoResp;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -22,6 +23,9 @@ public class DeepSeekChatAIHandler extends AbstractChatAIHandler {
     private DeepSeekProperties deepSeekProperties;
 
     @Autowired
+    private AiProviderProperties providerProperties;
+
+    @Autowired
     private AgentService agentService;
 
     @Override
@@ -37,7 +41,12 @@ public class DeepSeekChatAIHandler extends AbstractChatAIHandler {
 
     @Override
     protected boolean isUse() {
-        return deepSeekProperties.isUse() && StringUtils.isNotBlank(deepSeekProperties.getKey());
+        AiProviderProperties.Provider primary = providerProperties.getPrimary();
+        boolean compatibleProviderEnabled = primary != null && primary.isEnabled()
+                && StringUtils.isNotBlank(primary.getBaseUrl())
+                && StringUtils.isNotBlank(primary.getApiKey())
+                && StringUtils.isNotBlank(primary.getModel());
+        return compatibleProviderEnabled || (deepSeekProperties.isUse() && StringUtils.isNotBlank(deepSeekProperties.getKey()));
     }
 
     @Override

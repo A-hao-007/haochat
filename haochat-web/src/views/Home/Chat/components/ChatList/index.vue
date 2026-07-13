@@ -205,7 +205,9 @@ const getKey = (item: MessageType) => item.message.id
       @ok="goToBottom"
     />
     <!-- <VideoPlayer></VideoPlayer> -->
-    <template v-if="(!hasCurrentRoom || !messageOptions?.isLoading) && chatMessageList?.length === 0">
+    <template
+      v-if="(!hasCurrentRoom || !messageOptions?.isLoading) && chatMessageList?.length === 0"
+    >
       <div class="empty">暂无消息，快来发送第一条消息吧~</div>
     </template>
     <span

@@ -1,36 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { formatBytes, getFileSuffix } from '@/utils'
 import type { FileBody } from '@/services/types'
 import useDownloadQuenuStore from '@/stores/downloadQuenu'
+import apis from '@/services/apis'
 
 const { downloadObjMap, download, quenu, cancelDownload } = useDownloadQuenuStore()
-
 const props = defineProps<{ body: FileBody }>()
+const resolvedUrl = ref(props.body.url)
 
-// 下载文件
-const downloadFile = () => {
-  // 队列下载
-  download(props.body.url)
+watchEffect(() => {
+  resolvedUrl.value = props.body.url
+})
+
+const downloadFile = async () => {
+  if (props.body.assetId) {
+    const { downloadUrl } = await apis.getFileDownload(props.body.assetId).send()
+    resolvedUrl.value = downloadUrl
+  }
+  download(resolvedUrl.value)
 }
 
 const cancelDownloadFile = () => {
-  cancelDownload(props.body.url)
+  cancelDownload(resolvedUrl.value)
 }
 
-// 目前使用url作为map的key 但是url可能会重复 后面可以考虑使用id 或者 url + id 的形式
 const isDownloading = computed(() => {
-  return downloadObjMap.get(props.body.url)?.isDownloading || false
+  return downloadObjMap.get(resolvedUrl.value)?.isDownloading || false
 })
 
 const process = computed(() => {
-  return downloadObjMap.get(props.body.url)?.process || 0
+  return downloadObjMap.get(resolvedUrl.value)?.process || 0
 })
 
-// 是否排队中
 const isQuenu = computed(() => {
-  return quenu.includes(props.body.url)
+  return quenu.includes(resolvedUrl.value)
 })
 </script>
 

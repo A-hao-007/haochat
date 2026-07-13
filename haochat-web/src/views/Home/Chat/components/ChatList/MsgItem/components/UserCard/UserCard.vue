@@ -76,10 +76,7 @@ onMounted(() => {
       <div class="user-card_top-avatar">
         <el-avatar shape="square" :size="56" :src="user.avatar" />
         <!-- 在线状态 -->
-        <span
-          class="online-dot"
-          :class="{ online: onlineStatus().isOnline }"
-        />
+        <span class="online-dot" :class="{ online: onlineStatus().isOnline }" />
       </div>
       <div class="user-card_top-info">
         <el-tooltip effect="dark" :content="user.name" placement="top-start">
@@ -96,10 +93,7 @@ onMounted(() => {
     <!-- 状态信息 -->
     <div class="user-card_status">
       <div class="status-row">
-        <span
-          class="status-indicator"
-          :class="onlineStatus().isOnline ? 'online' : 'offline'"
-        />
+        <span class="status-indicator" :class="onlineStatus().isOnline ? 'online' : 'offline'" />
         <span class="status-text">
           {{ onlineStatus().isOnline ? '在线' : '离线' }}
         </span>

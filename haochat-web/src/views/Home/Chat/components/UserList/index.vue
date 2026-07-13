@@ -95,7 +95,13 @@ const onAddGroupMember = () => {
           <el-icon class="my-nickname-edit" :size="13" @click="startEditNickname"><Edit /></el-icon>
         </template>
         <template v-else>
-          <el-input v-model="nicknameDraft" size="small" maxlength="20" placeholder="设置群昵称" @keyup.enter="saveNickname" />
+          <el-input
+            v-model="nicknameDraft"
+            size="small"
+            maxlength="20"
+            placeholder="设置群昵称"
+            @keyup.enter="saveNickname"
+          />
           <el-button size="small" type="primary" @click="saveNickname">保存</el-button>
           <el-button size="small" @click="editingNickname = false">取消</el-button>
         </template>

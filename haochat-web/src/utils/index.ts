@@ -102,9 +102,10 @@ export const generateBody = (fileInfo: any, msgType: MsgEnum, isMock?: boolean) 
     thumbHeight,
     thumbUrl,
     thumbSize,
+    assetId,
   } = fileInfo
   const url = isMock ? tempUrl : downloadUrl
-  const baseBody = { size, url }
+  const baseBody = { assetId, size, url }
   let body = {}
 
   if (msgType === MsgEnum.IMAGE) {

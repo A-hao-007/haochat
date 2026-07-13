@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import type { ImageBody } from '@/services/types'
 import { useImgPreviewStore } from '@/stores/preview'
 import { formatImage } from '@/utils'
+import apis from '@/services/apis'
 
 const props = defineProps<{ body: ImageBody }>()
 
 const imageStore = useImgPreviewStore()
 const hasLoadError = ref(false)
 const isLoading = ref(true)
+const resolvedUrl = ref(props.body?.url || '')
+
+watchEffect(async () => {
+  hasLoadError.value = false
+  resolvedUrl.value = props.body?.url || ''
+  if (!props.body?.assetId) return
+  const { downloadUrl } = await apis.getFileDownload(props.body.assetId).send()
+  resolvedUrl.value = downloadUrl
+})
 
 /**
  * 核心就是的到高度，产生明确占位防止图片加载时页面抖动
@@ -36,7 +46,7 @@ const handleError = () => {
   <div
     class="image"
     :style="{ height: getImageHeight + 'px' }"
-    @click="imageStore.show(body?.url as string)"
+    @click="imageStore.show(resolvedUrl as string)"
   >
     <div v-if="hasLoadError" class="image-slot" :style="getWidthStyle()">
       <Icon icon="dazed" :size="36" colorful />
@@ -44,12 +54,12 @@ const handleError = () => {
     </div>
     <template v-else>
       <img
-        v-if="body?.url"
-        :src="body?.url"
+        v-if="resolvedUrl"
+        :src="resolvedUrl"
         draggable="false"
-        @click="imageStore.show(body?.url as string)"
+        @click="imageStore.show(resolvedUrl as string)"
         @error="handleError"
-        :alt="body?.url"
+        :alt="resolvedUrl"
       />
     </template>
   </div>

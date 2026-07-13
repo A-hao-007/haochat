@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.user.service;
 
 import cn.hutool.core.util.StrUtil;
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.exception.BusinessException;
 import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.ahao.haochat.common.common.utils.RequestHolder;
@@ -23,26 +24,39 @@ import java.util.concurrent.TimeUnit;
 public class AuthSecurityService {
     private static final int MAX_FAIL_COUNT = 5;
     private static final int FAIL_WINDOW_MINUTES = 15;
-    private static final String LOGIN_FAIL_KEY = "auth:login:fail:%s:%s";
 
     @Resource
     private UserLoginLogDao userLoginLogDao;
 
     public void checkLoginAllowed(String principal) {
         String key = failKey(principal);
-        String failCount = RedisUtils.getStr(key);
-        if (StrUtil.isNotBlank(failCount) && Integer.parseInt(failCount) >= MAX_FAIL_COUNT) {
-            throw new BusinessException("登录失败次数过多，请稍后再试");
+        try {
+            String failCount = RedisUtils.getStr(key);
+            if (StrUtil.isNotBlank(failCount) && Integer.parseInt(failCount) >= MAX_FAIL_COUNT) {
+                throw new BusinessException("登录失败次数过多，请稍后再试");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("check login fail count degraded, key={}", key, e);
         }
     }
 
     public void onLoginFailure(Long uid, String principal, String loginType, String reason) {
-        RedisUtils.integerInc(failKey(principal), FAIL_WINDOW_MINUTES, TimeUnit.MINUTES);
+        try {
+            RedisUtils.integerInc(failKey(principal), FAIL_WINDOW_MINUTES, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("record login fail count degraded, principal={}", principal, e);
+        }
         recordLogin(uid, principal, loginType, false, reason);
     }
 
     public void onLoginSuccess(Long uid, String principal, String loginType) {
-        RedisUtils.del(failKey(principal));
+        try {
+            RedisUtils.del(failKey(principal));
+        } catch (Exception e) {
+            log.warn("clear login fail count degraded, principal={}", principal, e);
+        }
         recordLogin(uid, principal, loginType, true, null);
     }
 
@@ -81,7 +95,7 @@ public class AuthSecurityService {
     }
 
     public String deviceId(String userAgent, String ip) {
-        return sha256((StrUtil.blankToDefault(userAgent, "unknown") + "|" + StrUtil.blankToDefault(ip, "unknown")));
+        return sha256(StrUtil.blankToDefault(userAgent, "unknown") + "|" + StrUtil.blankToDefault(ip, "unknown"));
     }
 
     public String deviceName(String userAgent) {
@@ -125,7 +139,8 @@ public class AuthSecurityService {
 
     private String failKey(String principal) {
         String ip = StrUtil.blankToDefault(getIp(), "unknown");
-        return String.format(LOGIN_FAIL_KEY, ip, StrUtil.blankToDefault(principal, "unknown").toLowerCase(Locale.ROOT));
+        return RedisKey.getKey(RedisKey.LOGIN_FAIL_STRING, ip,
+                StrUtil.blankToDefault(principal, "unknown").toLowerCase(Locale.ROOT));
     }
 
     private String sha256(String value) {

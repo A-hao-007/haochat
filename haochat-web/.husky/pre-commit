@@ -2,7 +2,10 @@
 . "$(dirname -- "$0")/_/husky.sh"
 . "$(dirname -- "$0")/common.sh"
 
+cd "$(dirname -- "$0")/.." || exit 1
+
 pnpm type-check
 pnpm lint:style
 pnpm link:format
+git add -A
 pnpm link:lint-staged

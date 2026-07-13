@@ -2,8 +2,8 @@ package com.ahao.haochat.common.chat.dao;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjectUtil;
-import com.ahao.haochat.common.chat.domain.entity.Contact;
 import com.ahao.haochat.common.chat.domain.entity.GroupMember;
+import com.ahao.haochat.common.chat.domain.enums.GroupMemberStatusEnum;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleEnum;
 import com.ahao.haochat.common.chat.mapper.GroupMemberMapper;
 import com.ahao.haochat.common.chat.service.cache.GroupMemberCache;
@@ -11,12 +11,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,6 +41,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
     public List<Long> getMemberUidList(Long groupId) {
         List<GroupMember> list = lambdaQuery()
                 .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .select(GroupMember::getUid)
                 .list();
         return list.stream().map(GroupMember::getUid).collect(Collectors.toList());
@@ -50,6 +51,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         List<GroupMember> list = lambdaQuery()
                 .eq(GroupMember::getGroupId, groupId)
                 .in(GroupMember::getUid, uidList)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .select(GroupMember::getUid)
                 .list();
         return list.stream().map(GroupMember::getUid).collect(Collectors.toList());
@@ -67,6 +69,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
                 .eq(GroupMember::getGroupId, groupId)
                 .in(GroupMember::getUid, uidList)
                 .in(GroupMember::getRole, ADMIN_LIST)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .select(GroupMember::getUid, GroupMember::getRole)
                 .list();
         return list.stream().collect(Collectors.toMap(GroupMember::getUid, GroupMember::getRole));
@@ -76,6 +79,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         return lambdaQuery()
                 .eq(GroupMember::getGroupId, groupId)
                 .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .one();
     }
 
@@ -83,6 +87,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         return lambdaQuery()
                 .eq(GroupMember::getUid, uid)
                 .eq(GroupMember::getRole, GroupRoleEnum.LEADER.getType())
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .list();
     }
 
@@ -92,6 +97,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
     public List<GroupMember> getMyGroups(Long uid) {
         return lambdaQuery()
                 .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .list();
     }
 
@@ -102,6 +108,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         List<GroupMember> list = lambdaQuery()
                 .eq(GroupMember::getGroupId, groupId)
                 .in(GroupMember::getUid, uidList)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .select(GroupMember::getUid, GroupMember::getNickname)
                 .list();
         return list.stream()
@@ -116,6 +123,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
                 .eq(GroupMember::getGroupId, groupId)
                 .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .set(GroupMember::getNickname, nickname);
         this.update(wrapper);
     }
@@ -127,11 +135,13 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         LambdaUpdateWrapper<GroupMember> demote = new UpdateWrapper<GroupMember>().lambda()
                 .eq(GroupMember::getGroupId, groupId)
                 .eq(GroupMember::getUid, fromUid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .set(GroupMember::getRole, GroupRoleEnum.MANAGER.getType());
         this.update(demote);
         LambdaUpdateWrapper<GroupMember> promote = new UpdateWrapper<GroupMember>().lambda()
                 .eq(GroupMember::getGroupId, groupId)
                 .eq(GroupMember::getUid, toUid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .set(GroupMember::getRole, GroupRoleEnum.LEADER.getType());
         this.update(promote);
     }
@@ -160,6 +170,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
                 .eq(GroupMember::getGroupId, id)
                 .eq(GroupMember::getUid, uid)
                 .eq(GroupMember::getRole, GroupRoleEnum.LEADER.getType())
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .one();
         return ObjectUtil.isNotNull(groupMember);
     }
@@ -176,6 +187,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
                 .eq(GroupMember::getGroupId, id)
                 .eq(GroupMember::getUid, uid)
                 .eq(GroupMember::getRole, GroupRoleEnum.MANAGER.getType())
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .one();
         return ObjectUtil.isNotNull(groupMember);
     }
@@ -190,6 +202,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         return this.lambdaQuery()
                 .eq(GroupMember::getGroupId, id)
                 .eq(GroupMember::getRole, GroupRoleEnum.MANAGER.getType())
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .list()
                 .stream()
                 .map(GroupMember::getUid)
@@ -206,6 +219,7 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
                 .eq(GroupMember::getGroupId, id)
                 .in(GroupMember::getUid, uidList)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .set(GroupMember::getRole, GroupRoleEnum.MANAGER.getType());
         this.update(wrapper);
     }
@@ -220,8 +234,49 @@ public class GroupMemberDao extends ServiceImpl<GroupMemberMapper, GroupMember> 
         LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
                 .eq(GroupMember::getGroupId, id)
                 .in(GroupMember::getUid, uidList)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
                 .set(GroupMember::getRole, GroupRoleEnum.MEMBER.getType());
         this.update(wrapper);
+    }
+
+    public boolean markRemoved(Long groupId, Long uid) {
+        LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
+                .set(GroupMember::getStatus, GroupMemberStatusEnum.REMOVED.getStatus())
+                .set(GroupMember::getUpdateTime, new Date());
+        return update(wrapper);
+    }
+
+    public boolean markExited(Long groupId, Long uid) {
+        LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
+                .set(GroupMember::getStatus, GroupMemberStatusEnum.EXITED.getStatus())
+                .set(GroupMember::getUpdateTime, new Date());
+        return update(wrapper);
+    }
+
+    public void mute(Long groupId, Long uid, Date muteEndTime) {
+        LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
+                .set(GroupMember::getMuteEndTime, muteEndTime)
+                .set(GroupMember::getUpdateTime, new Date());
+        update(wrapper);
+    }
+
+    public void unmute(Long groupId, Long uid) {
+        LambdaUpdateWrapper<GroupMember> wrapper = new UpdateWrapper<GroupMember>().lambda()
+                .eq(GroupMember::getGroupId, groupId)
+                .eq(GroupMember::getUid, uid)
+                .eq(GroupMember::getStatus, GroupMemberStatusEnum.NORMAL.getStatus())
+                .set(GroupMember::getMuteEndTime, null)
+                .set(GroupMember::getUpdateTime, new Date());
+        update(wrapper);
     }
 
     /**

@@ -5,6 +5,7 @@ import com.ahao.haochat.common.chat.domain.entity.Contact;
 import com.ahao.haochat.common.chat.domain.entity.GroupMember;
 import com.ahao.haochat.common.chat.domain.entity.Room;
 import com.ahao.haochat.common.chat.domain.entity.RoomGroup;
+import com.ahao.haochat.common.chat.domain.enums.GroupMemberStatusEnum;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleEnum;
 import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
 import com.ahao.haochat.common.chat.domain.vo.request.ChatMessageReq;
@@ -48,6 +49,7 @@ public class RoomAdapter {
                 .map(uid -> {
                     GroupMember member = new GroupMember();
                     member.setRole(GroupRoleEnum.MEMBER.getType());
+                    member.setStatus(GroupMemberStatusEnum.NORMAL.getStatus());
                     member.setUid(uid);
                     member.setGroupId(groupId);
                     return member;

@@ -39,6 +39,13 @@ public class RoomGroupDao extends ServiceImpl<RoomGroupMapper, RoomGroup> {
                 .one();
     }
 
+    public void updateOwner(Long groupId, Long ownerUid) {
+        RoomGroup update = new RoomGroup();
+        update.setId(groupId);
+        update.setOwnerUid(ownerUid);
+        updateById(update);
+    }
+
     /**
      * 群公告复用 ext_json 字段存储，无需新增列
      */

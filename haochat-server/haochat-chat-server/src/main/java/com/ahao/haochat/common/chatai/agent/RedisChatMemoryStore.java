@@ -1,5 +1,6 @@
 package com.ahao.haochat.common.chatai.agent;
 
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -76,7 +77,7 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
     }
 
     private String key(Object memoryId) {
-        return "ai:context:" + memoryId;
+        return RedisKey.getKey(RedisKey.AI_CONTEXT_STRING, memoryId);
     }
 
     private ObjectNode toNode(ChatMessage m) {
@@ -86,7 +87,7 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
             node.put("text", sm.text());
         } else if (m instanceof UserMessage um) {
             node.put("type", "user");
-            node.put("text", um.hasSingleText() ? um.singleText() : "");
+            node.put("text", um.hasSingleText() ? stripRetrievedMemory(um.singleText()) : "");
         } else if (m instanceof AiMessage am) {
             node.put("type", "ai");
             node.put("text", am.text());
@@ -110,6 +111,11 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
             return null;
         }
         return node;
+    }
+
+    private String stripRetrievedMemory(String text) {
+        int marker = text == null ? -1 : text.indexOf("[[USER_MESSAGE]]");
+        return marker < 0 ? text : text.substring(marker + "[[USER_MESSAGE]]".length());
     }
 
     private ChatMessage fromNode(JsonNode node) {

@@ -47,15 +47,15 @@
     .item-wrapper {
       position: relative;
       display: flex;
-      align-items: center;
       gap: 12px;
+      align-items: center;
       height: 100%;
       pointer-events: none;
     }
 
     .el-avatar {
       flex: none;
-      box-shadow: 0 6px 14px rgba(40, 58, 82, 0.12);
+      box-shadow: 0 6px 14px rgba(40, 58, 82, 12%);
     }
 
     .message-info {
@@ -91,23 +91,23 @@
         font-weight: 600;
         color: #7c8ba1;
         text-overflow: ellipsis;
-        white-space: nowrap;
         word-break: break-word;
+        white-space: nowrap;
       }
     }
 
     .message-time {
       flex: none;
+      align-self: flex-start;
       margin-top: 4px;
       font-size: 11px;
       font-weight: 600;
       color: #a7b2c2;
       white-space: nowrap;
-      align-self: flex-start;
     }
 
     &:hover {
-      background: rgba(255, 255, 255, 0.82);
+      background: rgba(255, 255, 255, 82%);
     }
 
     &:not(:first-child) {
@@ -116,12 +116,12 @@
 
     &.active {
       background: #fff;
-      box-shadow: 0 10px 24px rgba(51, 75, 105, 0.08);
+      box-shadow: 0 10px 24px rgba(51, 75, 105, 8%);
     }
 
     &.skeleton-item {
-      cursor: default;
       pointer-events: none;
+      cursor: default;
 
       &:hover {
         background: transparent;

@@ -22,11 +22,13 @@ const chatStore = useChatStore()
 const groupStore = useGroupStore()
 
 const activeTab = ref<'contacts' | 'requests' | 'sent' | 'groups'>(
-  route.meta.tab === 'groups' ? 'groups' : 'contacts'
+  route.meta.tab === 'groups' ? 'groups' : 'contacts',
 )
 watch(
   () => route.meta.tab,
-  (tab) => { activeTab.value = tab === 'groups' ? 'groups' : 'contacts' }
+  (tab) => {
+    activeTab.value = tab === 'groups' ? 'groups' : 'contacts'
+  },
 )
 const searchKeyword = ref('')
 const searchResults = ref<{ uid: number; name: string; avatar: string }[]>([])
@@ -38,8 +40,11 @@ const contactsList = computed(() => contactStore.contactsList || [])
 const requestsList = computed(() => contactStore.requestFriendsList || [])
 const sentRequestsList = computed(() => contactStore.sentFriendsList || [])
 
-const newRequestCount = computed(() =>
-  requestsList.value.filter((r: RequestFriendItem) => r.status === RequestFriendAgreeStatus.Waiting).length
+const newRequestCount = computed(
+  () =>
+    requestsList.value.filter(
+      (r: RequestFriendItem) => r.status === RequestFriendAgreeStatus.Waiting,
+    ).length,
 )
 
 onBeforeMount(async () => {
@@ -73,7 +78,9 @@ const getContactInfo = (uid: number) => {
   return {
     name: info.value?.name || '用户' + uid,
     avatar: info.value?.avatar || '',
-    online: contactStore.contactsList.find((c: { uid: number }) => c.uid === uid)?.activeStatus === OnlineEnum.ONLINE,
+    online:
+      contactStore.contactsList.find((c: { uid: number }) => c.uid === uid)?.activeStatus ===
+      OnlineEnum.ONLINE,
   }
 }
 
@@ -110,7 +117,7 @@ const addFriend = async (uid: number) => {
     await apis.sendAddFriendRequest({ targetUid: uid, msg: '你好，我想加你为好友' }).send()
     ElMessage.success('好友请求已发送')
     await contactStore.getSentFriendsList(true)
-    searchResults.value = searchResults.value.filter(u => u.uid !== uid)
+    searchResults.value = searchResults.value.filter((u) => u.uid !== uid)
   } catch (err: any) {
     ElMessage.error(err?.message || '发送失败')
   } finally {
@@ -158,13 +165,17 @@ const groupName = ref('')
 
 const toggleSelectUid = (uid: number) => {
   const s = new Set(selectedUids.value)
-  if (s.has(uid)) s.delete(uid); else s.add(uid)
+  if (s.has(uid)) s.delete(uid)
+  else s.add(uid)
   selectedUids.value = s
 }
 
 const createGroup = async () => {
   const ids = [...selectedUids.value]
-  if (ids.length < 1) { ElMessage.warning('请至少选择一个联系人'); return }
+  if (ids.length < 1) {
+    ElMessage.warning('请至少选择一个联系人')
+    return
+  }
   try {
     await apis.createGroup({ uidList: ids, name: groupName.value.trim() || undefined }).send()
     ElMessage.success('群聊创建成功')
@@ -172,7 +183,9 @@ const createGroup = async () => {
     selectedUids.value = new Set()
     groupName.value = ''
     await groupStore.getMyGroupList()
-  } catch (err: any) { ElMessage.error(err?.message || '创建失败') }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '创建失败')
+  }
 }
 
 const requestStatusText = (status: RequestFriendAgreeStatus) => {
@@ -205,7 +218,10 @@ const deleteFriend = async (uid: number) => {
         v-if="searchKeyword"
         class="search-clear"
         :size="14"
-        @click="searchKeyword = ''; searchResults = []"
+        @click="
+          searchKeyword = ''
+          searchResults = []
+        "
       />
     </div>
 
@@ -217,7 +233,12 @@ const deleteFriend = async (uid: number) => {
     </div>
     <div v-if="showCreateGroup" class="create-group-panel">
       <div class="cg-title">群名称</div>
-      <input v-model="groupName" class="cg-name-input" placeholder="给群聊起个名字（可选）" maxlength="30" />
+      <input
+        v-model="groupName"
+        class="cg-name-input"
+        placeholder="给群聊起个名字（可选）"
+        maxlength="30"
+      />
       <div class="cg-title">选择群成员（点击联系人）</div>
       <div class="cg-list">
         <div v-if="contactsList.length === 0" class="empty">暂无联系人</div>
@@ -240,11 +261,7 @@ const deleteFriend = async (uid: number) => {
     <!-- 搜索结果 -->
     <div v-if="searchResults.length > 0" class="search-results">
       <div class="results-header">搜索结果 ({{ searchResults.length }})</div>
-      <div
-        v-for="user in searchResults"
-        :key="user.uid"
-        class="result-item"
-      >
+      <div v-for="user in searchResults" :key="user.uid" class="result-item">
         <el-avatar :size="40" :src="user.avatar" />
         <div class="result-info">
           <span class="result-name">{{ user.name }}</span>
@@ -271,16 +288,10 @@ const deleteFriend = async (uid: number) => {
         收到申请
         <span v-if="newRequestCount" class="badge">{{ newRequestCount }}</span>
       </button>
-      <button
-        :class="['tab', { active: activeTab === 'sent' }]"
-        @click="activeTab = 'sent'"
-      >
+      <button :class="['tab', { active: activeTab === 'sent' }]" @click="activeTab = 'sent'">
         发出申请
       </button>
-      <button
-        :class="['tab', { active: activeTab === 'groups' }]"
-        @click="activeTab = 'groups'"
-      >
+      <button :class="['tab', { active: activeTab === 'groups' }]" @click="activeTab = 'groups'">
         群组 ({{ groupStore.myGroupList.length }})
       </button>
     </div>
@@ -288,11 +299,7 @@ const deleteFriend = async (uid: number) => {
     <!-- 联系人列表 -->
     <div v-if="activeTab === 'contacts'" class="list-section">
       <div v-if="contactsList.length === 0" class="empty">暂无联系人，搜索用户名添加好友吧</div>
-      <div
-        v-for="item in contactsList"
-        :key="item.uid"
-        class="contact-item"
-      >
+      <div v-for="item in contactsList" :key="item.uid" class="contact-item">
         <el-avatar :size="44" :src="getContactInfo(item.uid).avatar" />
         <div class="contact-info">
           <span class="contact-name">{{ getContactInfo(item.uid).name }}</span>
@@ -348,14 +355,12 @@ const deleteFriend = async (uid: number) => {
     <!-- 好友请求列表 -->
     <div v-if="activeTab === 'requests'" class="list-section">
       <div v-if="requestsList.length === 0" class="empty">暂无好友请求</div>
-      <div
-        v-for="req in requestsList"
-        :key="req.applyId"
-        class="request-item"
-      >
+      <div v-for="req in requestsList" :key="req.applyId" class="request-item">
         <el-avatar :size="44" :src="cachedStore.userCachedList[req.uid]?.avatar" />
         <div class="request-info">
-          <span class="request-name">{{ cachedStore.userCachedList[req.uid]?.name || '用户' + req.uid }}</span>
+          <span class="request-name">{{
+            cachedStore.userCachedList[req.uid]?.name || '用户' + req.uid
+          }}</span>
           <span class="request-msg">{{ req.msg || '请求添加你为好友' }}</span>
         </div>
         <div class="request-actions">
@@ -371,14 +376,12 @@ const deleteFriend = async (uid: number) => {
     <!-- 发出的好友请求列表 -->
     <div v-if="activeTab === 'sent'" class="list-section">
       <div v-if="sentRequestsList.length === 0" class="empty">暂无发出的好友请求</div>
-      <div
-        v-for="req in sentRequestsList"
-        :key="req.applyId"
-        class="request-item"
-      >
+      <div v-for="req in sentRequestsList" :key="req.applyId" class="request-item">
         <el-avatar :size="44" :src="cachedStore.userCachedList[req.uid]?.avatar" />
         <div class="request-info">
-          <span class="request-name">{{ cachedStore.userCachedList[req.uid]?.name || '用户' + req.uid }}</span>
+          <span class="request-name">{{
+            cachedStore.userCachedList[req.uid]?.name || '用户' + req.uid
+          }}</span>
           <span class="request-msg">{{ req.msg || '好友申请' }}</span>
         </div>
         <div class="request-actions">

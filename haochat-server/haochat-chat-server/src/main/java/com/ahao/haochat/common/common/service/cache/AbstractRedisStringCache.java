@@ -2,20 +2,26 @@ package com.ahao.haochat.common.common.service.cache;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.ahao.haochat.common.common.utils.RedisUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
 
 import java.lang.reflect.ParameterizedType;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Description: redis string类型的批量缓存框架
- * Author: <a href="https://github.com/A-hao-007">abin</a>
- * Date: 2023-06-10
+ * Redis string batch cache template.
  */
+@Slf4j
 public abstract class AbstractRedisStringCache<IN, OUT> implements BatchCache<IN, OUT> {
 
-    private Class<OUT> outClass;
+    private final Class<OUT> outClass;
 
     protected AbstractRedisStringCache() {
         ParameterizedType genericSuperclass = (ParameterizedType) this.getClass().getGenericSuperclass();
@@ -35,50 +41,63 @@ public abstract class AbstractRedisStringCache<IN, OUT> implements BatchCache<IN
 
     @Override
     public Map<IN, OUT> getBatch(List<IN> req) {
-        if (CollectionUtil.isEmpty(req)) {//防御性编程
+        if (CollectionUtil.isEmpty(req)) {
             return new HashMap<>();
         }
-        //去重
         req = req.stream().distinct().collect(Collectors.toList());
-        //组装key
         List<String> keys = req.stream().map(this::getKey).collect(Collectors.toList());
-        //批量get
-        List<OUT> valueList = RedisUtils.mget(keys, outClass);
-        //差集计算
+
+        List<OUT> valueList;
+        try {
+            valueList = RedisUtils.mget(keys, outClass);
+        } catch (Exception e) {
+            log.warn("redis batch get failed, fallback to load, cache={}", getClass().getSimpleName(), e);
+            return load(req);
+        }
+        if (valueList.size() != req.size()) {
+            log.warn("redis batch get size mismatch, fallback to load, cache={}, reqSize={}, valueSize={}",
+                    getClass().getSimpleName(), req.size(), valueList.size());
+            return load(req);
+        }
+
         List<IN> loadReqs = new ArrayList<>();
         for (int i = 0; i < valueList.size(); i++) {
             if (Objects.isNull(valueList.get(i))) {
                 loadReqs.add(req.get(i));
             }
         }
+
         Map<IN, OUT> load = new HashMap<>();
-        //不足的重新加载进redis
         if (CollectionUtil.isNotEmpty(loadReqs)) {
-            //批量load
             load = load(loadReqs);
             Map<String, OUT> loadMap = load.entrySet().stream()
-                    .map(a -> Pair.of(getKey(a.getKey()), a.getValue()))
-                    .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-            RedisUtils.mset(loadMap, getExpireSeconds());
+                    .filter(entry -> Objects.nonNull(entry.getValue()))
+                    .map(entry -> Pair.of(getKey(entry.getKey()), entry.getValue()))
+                    .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, (oldValue, newValue) -> newValue));
+            if (CollectionUtil.isNotEmpty(loadMap)) {
+                try {
+                    RedisUtils.mset(loadMap, getExpireSeconds());
+                } catch (Exception e) {
+                    log.warn("redis batch set failed, ignore cache write, cache={}", getClass().getSimpleName(), e);
+                }
+            }
         }
 
-        //组装最后的结果
         Map<IN, OUT> resultMap = new HashMap<>();
         for (int i = 0; i < req.size(); i++) {
             IN in = req.get(i);
-            OUT out = Optional.ofNullable(valueList.get(i))
-                    .orElse(load.get(in));
+            OUT out = Optional.ofNullable(valueList.get(i)).orElse(load.get(in));
             resultMap.put(in, out);
         }
         return resultMap;
     }
 
-    /**
-     * 原地回填缓存值。适用于"调用方已持有最新值、且字段允许短暂弱一致"的高频更新场景，
-     * 避免"改库就删缓存"在热点 key 上造成的反复回源。
-     */
     public void put(IN req, OUT value) {
-        RedisUtils.set(getKey(req), value, getExpireSeconds());
+        try {
+            RedisUtils.set(getKey(req), value, getExpireSeconds());
+        } catch (Exception e) {
+            log.warn("redis set failed, ignore cache write, cache={}", getClass().getSimpleName(), e);
+        }
     }
 
     @Override
@@ -88,7 +107,14 @@ public abstract class AbstractRedisStringCache<IN, OUT> implements BatchCache<IN
 
     @Override
     public void deleteBatch(List<IN> req) {
+        if (CollectionUtil.isEmpty(req)) {
+            return;
+        }
         List<String> keys = req.stream().map(this::getKey).collect(Collectors.toList());
-        RedisUtils.del(keys);
+        try {
+            RedisUtils.del(keys);
+        } catch (Exception e) {
+            log.warn("redis delete failed, ignore cache delete, cache={}", getClass().getSimpleName(), e);
+        }
     }
 }

@@ -7,11 +7,7 @@ import QrCode from 'qrcode.vue'
 import apis from '@/services/apis'
 import { computedToken } from '@/services/request'
 import { ElMessage } from 'element-plus'
-import {
-  getRecentAccounts,
-  upsertAccount,
-  type RecentAccount,
-} from '@/utils/accountManager'
+import { getRecentAccounts, upsertAccount, type RecentAccount } from '@/utils/accountManager'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -24,7 +20,14 @@ const remember = ref(localStorage.getItem('REMEMBER_LOGIN') !== '0')
 const recentAccounts = ref<RecentAccount[]>(getRecentAccounts())
 const rememberedName = localStorage.getItem('REMEMBER_USERNAME') || ''
 const loginForm = reactive({ username: remember.value ? rememberedName : '', password: '' })
-const registerForm = reactive({ username: '', name: '', password: '', confirmPassword: '', email: '', emailCode: '' })
+const registerForm = reactive({
+  username: '',
+  name: '',
+  password: '',
+  confirmPassword: '',
+  email: '',
+  emailCode: '',
+})
 const sendingRegisterCode = ref(false)
 const registerCodeCountdown = ref(0)
 
@@ -33,7 +36,10 @@ const applyLoginSuccess = (res: any) => {
   const accessToken = res.accessToken || res.token
   localStorage.setItem('TOKEN', accessToken)
   res.refreshToken && localStorage.setItem('REFRESH_TOKEN', res.refreshToken)
-  localStorage.setItem('USER_INFO', JSON.stringify({ uid: res.uid, name: res.name, avatar: res.avatar }))
+  localStorage.setItem(
+    'USER_INFO',
+    JSON.stringify({ uid: res.uid, name: res.name, avatar: res.avatar }),
+  )
   localStorage.setItem('REMEMBER_LOGIN', remember.value ? '1' : '0')
   if (remember.value) {
     localStorage.setItem('REMEMBER_USERNAME', res.username || loginForm.username.trim())
@@ -41,10 +47,18 @@ const applyLoginSuccess = (res: any) => {
     localStorage.removeItem('REMEMBER_USERNAME')
   }
   upsertAccount(
-    { uid: res.uid, name: res.name, avatar: res.avatar, username: res.username, token: accessToken, lastLogin: Date.now() },
+    {
+      uid: res.uid,
+      name: res.name,
+      avatar: res.avatar,
+      username: res.username,
+      token: accessToken,
+      lastLogin: Date.now(),
+    },
     remember.value,
   )
-  computedToken.clear(); computedToken.get()
+  computedToken.clear()
+  computedToken.get()
   userStore.isSign = true
   userStore.userInfo = { uid: res.uid, name: res.name, avatar: res.avatar }
   // 整页刷新进入主页：换账号登录时内存里可能还留着上一个账号的消息/会话/当前房间等状态，
@@ -54,8 +68,14 @@ const applyLoginSuccess = (res: any) => {
 
 const handleLogin = async () => {
   const id = loginForm.username.trim()
-  if (!id) { ElMessage.warning('请输入用户名或邮箱'); return }
-  if (!loginForm.password) { ElMessage.warning('请输入密码'); return }
+  if (!id) {
+    ElMessage.warning('请输入用户名或邮箱')
+    return
+  }
+  if (!loginForm.password) {
+    ElMessage.warning('请输入密码')
+    return
+  }
   loading.value = true
   try {
     // 含 @ 视为邮箱登录
@@ -64,8 +84,11 @@ const handleLogin = async () => {
       : await apis.login({ username: id, password: loginForm.password }).send()
     applyLoginSuccess(res)
     ElMessage.success('登录成功')
-  } catch (err: any) { ElMessage.error(err?.message || '登录失败') }
-  finally { loading.value = false }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '登录失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 // —— 邮箱验证码登录 ——
@@ -76,7 +99,10 @@ const loginCodeCountdown = ref(0)
 
 const sendLoginCode = async () => {
   const email = codeLoginForm.email.trim()
-  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) { ElMessage.warning('请输入正确的邮箱地址'); return }
+  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) {
+    ElMessage.warning('请输入正确的邮箱地址')
+    return
+  }
   sendingLoginCode.value = true
   try {
     await apis.loginEmailCode({ email }).send()
@@ -86,8 +112,11 @@ const sendLoginCode = async () => {
       loginCodeCountdown.value--
       if (loginCodeCountdown.value <= 0) clearInterval(timer)
     }, 1000)
-  } catch (e: any) { ElMessage.error(e?.message || '发送失败') }
-  finally { sendingLoginCode.value = false }
+  } catch (e: any) {
+    ElMessage.error(e?.message || '发送失败')
+  } finally {
+    sendingLoginCode.value = false
+  }
 }
 
 // —— 微信扫码登录 ——
@@ -110,7 +139,10 @@ watch(loginMode, (mode) => {
   loginStore.getLoginQrCode()
   // WS 可能尚未建连导致首次请求被丢弃，间隔重试几次；仍拿不到就提示未配置
   qrRetryTimer = setInterval(() => {
-    if (loginStore.loginQrCode) { stopQrRetry(); return }
+    if (loginStore.loginQrCode) {
+      stopQrRetry()
+      return
+    }
     attempts++
     if (attempts >= 3) {
       qrTimeout.value = true
@@ -133,22 +165,37 @@ onUnmounted(stopQrRetry)
 
 const handleCodeLogin = async () => {
   const email = codeLoginForm.email.trim()
-  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) { ElMessage.warning('请输入正确的邮箱地址'); return }
-  if (!codeLoginForm.code.trim()) { ElMessage.warning('请输入验证码'); return }
+  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) {
+    ElMessage.warning('请输入正确的邮箱地址')
+    return
+  }
+  if (!codeLoginForm.code.trim()) {
+    ElMessage.warning('请输入验证码')
+    return
+  }
   loading.value = true
   try {
     const res = await apis.emailCodeLogin({ email, code: codeLoginForm.code.trim() }).send()
     applyLoginSuccess(res)
     ElMessage.success('登录成功')
-  } catch (err: any) { ElMessage.error(err?.message || '登录失败') }
-  finally { loading.value = false }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '登录失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 切换账号：有有效 token 则免密登录，否则回填用户名让其输入密码
 const switchTo = (acc: RecentAccount) => {
   if (acc.token) {
     remember.value = true
-    applyLoginSuccess({ uid: acc.uid, name: acc.name, avatar: acc.avatar, username: acc.username, token: acc.token })
+    applyLoginSuccess({
+      uid: acc.uid,
+      name: acc.name,
+      avatar: acc.avatar,
+      username: acc.username,
+      token: acc.token,
+    })
     ElMessage.success(`已切换到 ${acc.name}`)
   } else {
     isLogin.value = true
@@ -174,28 +221,47 @@ const onForgotPassword = () => {
   forgot.show = true
 }
 const sendForgotCode = async () => {
-  if (!forgot.email.trim()) { ElMessage.warning('请输入邮箱'); return }
+  if (!forgot.email.trim()) {
+    ElMessage.warning('请输入邮箱')
+    return
+  }
   forgot.sending = true
   try {
     await apis.forgotCode({ email: forgot.email.trim() }).send()
     ElMessage.success('验证码已发送，请查收邮箱')
-  } catch (e: any) { ElMessage.error(e?.message || '发送失败') }
-  finally { forgot.sending = false }
+  } catch (e: any) {
+    ElMessage.error(e?.message || '发送失败')
+  } finally {
+    forgot.sending = false
+  }
 }
 const doReset = async () => {
-  if (!forgot.code.trim()) { ElMessage.warning('请输入验证码'); return }
+  if (!forgot.code.trim()) {
+    ElMessage.warning('请输入验证码')
+    return
+  }
   if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(forgot.newPassword)) {
-    ElMessage.warning('新密码至少 8 位，且含大小写字母和数字'); return
+    ElMessage.warning('新密码至少 8 位，且含大小写字母和数字')
+    return
   }
   forgot.saving = true
   try {
-    await apis.forgotReset({ email: forgot.email.trim(), code: forgot.code.trim(), newPassword: forgot.newPassword }).send()
+    await apis
+      .forgotReset({
+        email: forgot.email.trim(),
+        code: forgot.code.trim(),
+        newPassword: forgot.newPassword,
+      })
+      .send()
     ElMessage.success('密码已重置，请用新密码登录')
     forgot.show = false
     loginForm.username = forgot.email.trim()
     loginForm.password = ''
-  } catch (e: any) { ElMessage.error(e?.message || '重置失败') }
-  finally { forgot.saving = false }
+  } catch (e: any) {
+    ElMessage.error(e?.message || '重置失败')
+  } finally {
+    forgot.saving = false
+  }
 }
 
 const startRegisterCountdown = () => {
@@ -208,46 +274,86 @@ const startRegisterCountdown = () => {
 
 const sendRegisterCode = async () => {
   const email = registerForm.email.trim()
-  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) { ElMessage.warning('请输入正确的邮箱地址'); return }
+  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) {
+    ElMessage.warning('请输入正确的邮箱地址')
+    return
+  }
   sendingRegisterCode.value = true
   try {
     await apis.registerEmailCode({ email }).send()
     ElMessage.success('验证码已发送，请查收邮箱')
     startRegisterCountdown()
-  } catch (e: any) { ElMessage.error(e?.message || '发送失败') }
-  finally { sendingRegisterCode.value = false }
+  } catch (e: any) {
+    ElMessage.error(e?.message || '发送失败')
+  } finally {
+    sendingRegisterCode.value = false
+  }
 }
 
 const handleRegister = async () => {
-  if (!registerForm.username.trim()) { ElMessage.warning('请输入用户名'); return }
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(registerForm.username.trim())) { ElMessage.warning('用户名3-20位字母/数字/下划线'); return }
-  if (!registerForm.name.trim()) { ElMessage.warning('请输入昵称'); return }
-  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(registerForm.password)) { ElMessage.warning('密码至少8位，且包含大小写字母和数字'); return }
-  if (registerForm.password !== registerForm.confirmPassword) { ElMessage.warning('两次密码不一致'); return }
-  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(registerForm.email.trim())) { ElMessage.warning('请输入正确的邮箱地址'); return }
-  if (!registerForm.emailCode.trim()) { ElMessage.warning('请输入邮箱验证码'); return }
+  if (!registerForm.username.trim()) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(registerForm.username.trim())) {
+    ElMessage.warning('用户名3-20位字母/数字/下划线')
+    return
+  }
+  if (!registerForm.name.trim()) {
+    ElMessage.warning('请输入昵称')
+    return
+  }
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(registerForm.password)) {
+    ElMessage.warning('密码至少8位，且包含大小写字母和数字')
+    return
+  }
+  if (registerForm.password !== registerForm.confirmPassword) {
+    ElMessage.warning('两次密码不一致')
+    return
+  }
+  if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(registerForm.email.trim())) {
+    ElMessage.warning('请输入正确的邮箱地址')
+    return
+  }
+  if (!registerForm.emailCode.trim()) {
+    ElMessage.warning('请输入邮箱验证码')
+    return
+  }
   loading.value = true
   try {
-    await apis.register({
-      username: registerForm.username.trim(),
-      name: registerForm.name.trim(),
-      password: registerForm.password,
-      email: registerForm.email.trim(),
-      emailCode: registerForm.emailCode.trim(),
-    }).send()
+    await apis
+      .register({
+        username: registerForm.username.trim(),
+        name: registerForm.name.trim(),
+        password: registerForm.password,
+        email: registerForm.email.trim(),
+        emailCode: registerForm.emailCode.trim(),
+      })
+      .send()
     ElMessage.success('注册成功，请登录')
     isLogin.value = true
     loginForm.username = registerForm.username
-    registerForm.username = registerForm.name = registerForm.password = registerForm.confirmPassword = registerForm.email = registerForm.emailCode = ''
-  } catch (err: any) { ElMessage.error(err?.message || '注册失败') }
-  finally { loading.value = false }
+    registerForm.username =
+      registerForm.name =
+      registerForm.password =
+      registerForm.confirmPassword =
+      registerForm.email =
+      registerForm.emailCode =
+        ''
+  } catch (err: any) {
+    ElMessage.error(err?.message || '注册失败')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <template>
   <div
     class="login-page"
-    @keyup.enter="isLogin ? (loginMode === 'password' ? handleLogin() : handleCodeLogin()) : handleRegister()"
+    @keyup.enter="
+      isLogin ? (loginMode === 'password' ? handleLogin() : handleCodeLogin()) : handleRegister()
+    "
   >
     <header class="login-brand">
       <span class="brand-mark">H</span>
@@ -261,10 +367,10 @@ const handleRegister = async () => {
           !isLogin
             ? '创建你的 HaoChat 账号'
             : loginMode === 'password'
-              ? '使用用户名和密码进入'
-              : loginMode === 'emailCode'
-                ? '使用邮箱验证码进入'
-                : '使用微信扫码进入'
+            ? '使用用户名和密码进入'
+            : loginMode === 'emailCode'
+            ? '使用邮箱验证码进入'
+            : '使用微信扫码进入'
         }}
       </p>
       <div class="tabs">
@@ -281,28 +387,55 @@ const handleRegister = async () => {
           :title="acc.token ? `免密切换到 ${acc.name}` : `使用 ${acc.name} 登录`"
           @click="switchTo(acc)"
         >
-          <img class="recent-avatar" :src="acc.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" :alt="acc.name" />
+          <img
+            class="recent-avatar"
+            :src="
+              acc.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+            "
+            :alt="acc.name"
+          />
           <span class="recent-name">{{ acc.name }}</span>
         </button>
       </div>
 
       <!-- 登录方式切换：账号密码 / 邮箱验证码 -->
       <div v-if="isLogin" class="login-mode-switch">
-        <a :class="['mode-link', { active: loginMode === 'password' }]" @click="loginMode = 'password'">账号密码</a>
+        <a
+          :class="['mode-link', { active: loginMode === 'password' }]"
+          @click="loginMode = 'password'"
+          >账号密码</a
+        >
         <span class="mode-sep">|</span>
-        <a :class="['mode-link', { active: loginMode === 'emailCode' }]" @click="loginMode = 'emailCode'">邮箱验证码</a>
+        <a
+          :class="['mode-link', { active: loginMode === 'emailCode' }]"
+          @click="loginMode = 'emailCode'"
+          >邮箱验证码</a
+        >
         <span class="mode-sep">|</span>
-        <a :class="['mode-link', { active: loginMode === 'wechat' }]" @click="loginMode = 'wechat'">微信扫码</a>
+        <a :class="['mode-link', { active: loginMode === 'wechat' }]" @click="loginMode = 'wechat'"
+          >微信扫码</a
+        >
       </div>
 
       <form v-if="isLogin && loginMode === 'password'" class="form" @submit.prevent="handleLogin">
         <label class="field">
           <span>用户名 / 邮箱</span>
-          <input v-model="loginForm.username" class="input" placeholder="输入用户名或邮箱" autocomplete="username" />
+          <input
+            v-model="loginForm.username"
+            class="input"
+            placeholder="输入用户名或邮箱"
+            autocomplete="username"
+          />
         </label>
         <label class="field">
           <span>密码</span>
-          <input v-model="loginForm.password" class="input" type="password" placeholder="输入密码" autocomplete="current-password" />
+          <input
+            v-model="loginForm.password"
+            class="input"
+            type="password"
+            placeholder="输入密码"
+            autocomplete="current-password"
+          />
         </label>
         <div class="form-row">
           <label class="remember">
@@ -313,22 +446,42 @@ const handleRegister = async () => {
         </div>
         <button class="btn" :disabled="loading">{{ loading ? '...' : '登录' }}</button>
       </form>
-      <form v-else-if="isLogin && loginMode === 'emailCode'" class="form" @submit.prevent="handleCodeLogin">
+      <form
+        v-else-if="isLogin && loginMode === 'emailCode'"
+        class="form"
+        @submit.prevent="handleCodeLogin"
+      >
         <label class="field">
           <span>邮箱</span>
-          <input v-model="codeLoginForm.email" class="input" placeholder="输入注册时绑定的邮箱" autocomplete="email" />
+          <input
+            v-model="codeLoginForm.email"
+            class="input"
+            placeholder="输入注册时绑定的邮箱"
+            autocomplete="email"
+          />
         </label>
         <label class="field">
           <span>验证码</span>
           <div class="code-row">
-            <input v-model="codeLoginForm.code" class="input" placeholder="输入邮箱验证码" autocomplete="one-time-code" />
+            <input
+              v-model="codeLoginForm.code"
+              class="input"
+              placeholder="输入邮箱验证码"
+              autocomplete="one-time-code"
+            />
             <button
               type="button"
               class="code-btn"
               :disabled="sendingLoginCode || loginCodeCountdown > 0"
               @click="sendLoginCode"
             >
-              {{ loginCodeCountdown > 0 ? `${loginCodeCountdown}s` : sendingLoginCode ? '...' : '发送验证码' }}
+              {{
+                loginCodeCountdown > 0
+                  ? `${loginCodeCountdown}s`
+                  : sendingLoginCode
+                  ? '...'
+                  : '发送验证码'
+              }}
             </button>
           </div>
         </label>
@@ -357,35 +510,73 @@ const handleRegister = async () => {
       <form v-else class="form" @submit.prevent="handleRegister">
         <label class="field">
           <span>用户名</span>
-          <input v-model="registerForm.username" class="input" placeholder="字母/数字/下划线 3-20 位" autocomplete="off" />
+          <input
+            v-model="registerForm.username"
+            class="input"
+            placeholder="字母/数字/下划线 3-20 位"
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>昵称</span>
-          <input v-model="registerForm.name" class="input" placeholder="输入昵称" autocomplete="off" />
+          <input
+            v-model="registerForm.name"
+            class="input"
+            placeholder="输入昵称"
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>密码</span>
-          <input v-model="registerForm.password" class="input" type="password" placeholder="至少 6 位" autocomplete="new-password" />
+          <input
+            v-model="registerForm.password"
+            class="input"
+            type="password"
+            placeholder="至少 6 位"
+            autocomplete="new-password"
+          />
         </label>
         <label class="field">
           <span>确认密码</span>
-          <input v-model="registerForm.confirmPassword" class="input" type="password" placeholder="再次输入密码" autocomplete="new-password" />
+          <input
+            v-model="registerForm.confirmPassword"
+            class="input"
+            type="password"
+            placeholder="再次输入密码"
+            autocomplete="new-password"
+          />
         </label>
         <label class="field">
           <span>邮箱</span>
-          <input v-model="registerForm.email" class="input" placeholder="用于登录找回密码等" autocomplete="email" />
+          <input
+            v-model="registerForm.email"
+            class="input"
+            placeholder="用于登录找回密码等"
+            autocomplete="email"
+          />
         </label>
         <label class="field">
           <span>邮箱验证码</span>
           <div class="code-row">
-            <input v-model="registerForm.emailCode" class="input" placeholder="输入验证码" autocomplete="off" />
+            <input
+              v-model="registerForm.emailCode"
+              class="input"
+              placeholder="输入验证码"
+              autocomplete="off"
+            />
             <button
               type="button"
               class="code-btn"
               :disabled="sendingRegisterCode || registerCodeCountdown > 0"
               @click="sendRegisterCode"
             >
-              {{ registerCodeCountdown > 0 ? `${registerCodeCountdown}s` : sendingRegisterCode ? '...' : '发送验证码' }}
+              {{
+                registerCodeCountdown > 0
+                  ? `${registerCodeCountdown}s`
+                  : sendingRegisterCode
+                  ? '...'
+                  : '发送验证码'
+              }}
             </button>
           </div>
         </label>
@@ -400,7 +591,12 @@ const handleRegister = async () => {
           <el-input v-model="forgot.code" placeholder="验证码" />
           <el-button :loading="forgot.sending" @click="sendForgotCode">发送验证码</el-button>
         </div>
-        <el-input v-model="forgot.newPassword" type="password" show-password placeholder="新密码（8位+，含大小写和数字）" />
+        <el-input
+          v-model="forgot.newPassword"
+          type="password"
+          show-password
+          placeholder="新密码（8位+，含大小写和数字）"
+        />
       </div>
       <template #footer>
         <el-button @click="forgot.show = false">取消</el-button>
@@ -429,8 +625,8 @@ const handleRegister = async () => {
   top: 24px;
   left: 50%;
   display: inline-flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   transform: translateX(-50%);
 }
 
@@ -445,7 +641,7 @@ const handleRegister = async () => {
   color: #fff;
   background: #2f66e8;
   border-radius: 10px;
-  box-shadow: 0 14px 34px rgba(47, 102, 232, 0.24);
+  box-shadow: 0 14px 34px rgba(47, 102, 232, 24%);
 }
 
 .brand-name {
@@ -460,7 +656,7 @@ const handleRegister = async () => {
   background: #fff;
   border: 1px solid #e5edf6;
   border-radius: 16px;
-  box-shadow: 0 24px 70px rgba(28, 44, 74, 0.12);
+  box-shadow: 0 24px 70px rgba(28, 44, 74, 12%);
 }
 
 .title {
@@ -494,16 +690,16 @@ const handleRegister = async () => {
   font-size: 14px;
   font-weight: 700;
   color: #6d7f98;
+  cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: 8px;
-  cursor: pointer;
 }
 
 .tab.active {
   color: #2f66e8;
   background: #fff;
-  box-shadow: 0 3px 10px rgba(35, 55, 87, 0.08);
+  box-shadow: 0 3px 10px rgba(35, 55, 87, 8%);
 }
 
 .form {
@@ -537,7 +733,7 @@ const handleRegister = async () => {
 .input:focus {
   background: #fff;
   border-color: #8fb2ff;
-  box-shadow: 0 0 0 3px rgba(47, 102, 232, 0.1);
+  box-shadow: 0 0 0 3px rgba(47, 102, 232, 10%);
 }
 
 .input::placeholder {
@@ -550,10 +746,10 @@ const handleRegister = async () => {
   font-size: 15px;
   font-weight: 800;
   color: #fff;
+  cursor: pointer;
   background: #2f66e8;
   border: 0;
   border-radius: 10px;
-  cursor: pointer;
   transition: background 0.2s, transform 0.2s;
 }
 
@@ -595,10 +791,10 @@ const handleRegister = async () => {
   font-weight: 700;
   color: #2f66e8;
   white-space: nowrap;
+  cursor: pointer;
   background: #eef3fd;
   border: 1px solid #dfe8f3;
   border-radius: 10px;
-  cursor: pointer;
   transition: background 0.2s;
 }
 
@@ -620,14 +816,14 @@ const handleRegister = async () => {
 .recent-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 4px;
+  align-items: center;
   width: 64px;
   padding: 8px 4px;
+  cursor: pointer;
   background: #f6f9fd;
   border: 1px solid #e5edf6;
   border-radius: 10px;
-  cursor: pointer;
   transition: border-color 0.2s, transform 0.2s;
 }
 
@@ -708,9 +904,9 @@ const handleRegister = async () => {
 .qr-placeholder {
   padding: 0 16px;
   font-size: 13px;
+  line-height: 1.6;
   color: #7b8ca6;
   text-align: center;
-  line-height: 1.6;
 }
 
 .wechat-tip {

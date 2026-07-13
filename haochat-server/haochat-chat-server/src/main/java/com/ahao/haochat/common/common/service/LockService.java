@@ -1,5 +1,6 @@
 package com.ahao.haochat.common.common.service;
 
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.exception.BusinessException;
 import com.ahao.haochat.common.common.exception.CommonErrorEnum;
 import lombok.SneakyThrows;
@@ -20,7 +21,7 @@ public class LockService {
     private RedissonClient redissonClient;
 
     public <T> T executeWithLockThrows(String key, int waitTime, TimeUnit unit, SupplierThrow<T> supplier) throws Throwable {
-        RLock lock = redissonClient.getLock(key);
+        RLock lock = redissonClient.getLock(RedisKey.join("lock", key));
         boolean lockSuccess = lock.tryLock(waitTime, unit);
         if (!lockSuccess) {
             throw new BusinessException(CommonErrorEnum.LOCK_LIMIT);

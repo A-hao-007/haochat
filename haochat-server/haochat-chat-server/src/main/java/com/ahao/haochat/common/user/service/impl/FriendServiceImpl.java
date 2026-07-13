@@ -12,6 +12,7 @@ import com.ahao.haochat.common.common.domain.vo.request.PageBaseReq;
 import com.ahao.haochat.common.common.domain.vo.response.CursorPageBaseResp;
 import com.ahao.haochat.common.common.domain.vo.response.PageBaseResp;
 import com.ahao.haochat.common.common.event.UserApplyEvent;
+import com.ahao.haochat.common.common.event.FriendApplyAcceptedEvent;
 import com.ahao.haochat.common.common.service.LockService;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.user.dao.UserApplyDao;
@@ -212,6 +213,8 @@ public class FriendServiceImpl implements FriendService {
         createFriend(uid, userApply.getUid());
         //创建一个聊天房间
         RoomFriend roomFriend = roomService.createFriendRoom(Arrays.asList(uid, userApply.getUid()));
+        applicationEventPublisher.publishEvent(new FriendApplyAcceptedEvent(this, request.getApplyId(), uid,
+                userApply.getUid(), roomFriend.getRoomId()));
         //发送一条同意消息。。我们已经是好友了，开始聊天吧
         chatService.sendMsg(MessageAdapter.buildAgreeMsg(roomFriend.getRoomId()), uid);
     }

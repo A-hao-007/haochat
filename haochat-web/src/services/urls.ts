@@ -36,6 +36,11 @@ export default {
   recallMsg: `${prefix}/capi/chat/msg/recall`, // 撤回消息
   editMsg: `${prefix}/capi/chat/msg/edit`, // 编辑消息
   fileUpload: `${prefix}/capi/oss/upload/url`, // 文件上传
+  fileUploadInit: `${prefix}/capi/file/upload/init`,
+  fileUploadComplete: `${prefix}/capi/file/upload/complete`,
+  fileUploadRetry: `${prefix}/capi/file/upload`,
+  fileDownload: `${prefix}/capi/file`,
+  bindAvatarAsset: `${prefix}/capi/file/avatar`,
   addEmoji: `${prefix}/capi/user/emoji`, // 增加表情
   deleteEmoji: `${prefix}/capi/user/emoji`, // 删除表情
   getEmoji: `${prefix}/capi/user/emoji/list`, // 查询表情包
@@ -57,6 +62,7 @@ export default {
   getGroupUserList: `${prefix}/capi/room/public/group/member/page`,
   inviteGroupMember: `${prefix}/capi/room/group/member`, // 邀请群成员
   exitGroup: `${prefix}/capi/room/group/member/exit`, // 退群
+  muteGroupMember: `${prefix}/capi/room/group/member/mute`, // 禁言群成员
   addAdmin: `${prefix}/capi/room/group/admin`, // 添加管理员
   revokeAdmin: `${prefix}/capi/room/group/admin`, // 添加管理员
   groupDetail: `${prefix}/capi/room/public/group`, // 群组详情
@@ -65,6 +71,7 @@ export default {
   readGroupNotice: `${prefix}/capi/room/group/notice/read`, // 标记群公告已读
   updateGroupNickname: `${prefix}/capi/room/group/nickname`, // 更新我在群里的昵称
   myGroupList: `${prefix}/capi/room/group/my-list`, // 我的群组列表
+  groupLogPage: `${prefix}/capi/room/group/log/page`, // 群操作日志
   sessionDetail: `${prefix}/capi/chat/public/contact/detail`, // 会话详情
   sessionDetailWithFriends: `${prefix}/capi/chat/public/contact/detail/friend`, // 会话详情(联系人列表发消息用)
   pinContact: `${prefix}/capi/chat/contact/pin`,

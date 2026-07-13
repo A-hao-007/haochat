@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { useGroupStore } from '@/stores/group'
 import { useGlobalStore } from '@/stores/global'
 import { useChatStore } from '@/stores/chat'
 import { judgeClient } from '@/utils/detectDevice'
@@ -15,7 +14,6 @@ const client = judgeClient()
 const visible = ref(false)
 const router = useRouter()
 const userStore = useUserStore()
-const groupStore = useGroupStore()
 const globalStore = useGlobalStore()
 const chatStore = useChatStore()
 const { currentTheme, toggleTheme } = useTheme()
@@ -23,7 +21,6 @@ const { currentTheme, toggleTheme } = useTheme()
 const avatar = computed(() => userStore?.userInfo.avatar)
 const unReadMark = computed(() => globalStore.unReadMark)
 const showSettingBox = () => (visible.value = true)
-const toggleGroupListShow = () => (groupStore.showGroupList = !groupStore.showGroupList)
 const isPc = computed(() => client === 'PC')
 
 // 打开AI助手聊天
@@ -44,8 +41,15 @@ const openAIChat = async () => {
 
 const handleLogout = async () => {
   try {
-    await ElMessageBox.confirm('确定要退出登录吗？', '提示', { confirmButtonText: '退出', cancelButtonText: '取消', type: 'warning' })
-    await apis.logout(localStorage.getItem('REFRESH_TOKEN') || undefined).send().catch(() => undefined)
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await apis
+      .logout(localStorage.getItem('REFRESH_TOKEN') || undefined)
+      .send()
+      .catch(() => undefined)
     userStore.isSign = false
     userStore.userInfo = {}
     localStorage.removeItem('TOKEN')
@@ -54,7 +58,9 @@ const handleLogout = async () => {
     // 整页刷新回登录页：SPA 内部跳转不会清掉内存里的消息/会话/当前房间等状态，
     // 下一个账号在同一浏览器登录时会看到上一个账号的聊天内容（已实际发生过）
     window.location.replace('/login')
-  } catch {}
+  } catch {
+    // The user cancelled logout confirmation.
+  }
 }
 </script>
 
@@ -67,13 +73,21 @@ const handleLogout = async () => {
 
     <div class="tool-icons">
       <router-link class="tool-link" exactActiveClass="tool-icon-active" to="/">
-        <el-badge :value="unReadMark.newMsgUnreadCount" :hidden="unReadMark.newMsgUnreadCount === 0" :max="99">
+        <el-badge
+          :value="unReadMark.newMsgUnreadCount"
+          :hidden="unReadMark.newMsgUnreadCount === 0"
+          :max="99"
+        >
           <Icon class="tool-icon" icon="chat" :size="20" />
         </el-badge>
         <span>消息</span>
       </router-link>
       <router-link v-login-show class="tool-link" exactActiveClass="tool-icon-active" to="/contact">
-        <el-badge :value="unReadMark.newFriendUnreadCount" :hidden="unReadMark.newFriendUnreadCount === 0" :max="99">
+        <el-badge
+          :value="unReadMark.newFriendUnreadCount"
+          :hidden="unReadMark.newFriendUnreadCount === 0"
+          :max="99"
+        >
           <Icon class="tool-icon" icon="group" :size="20" />
         </el-badge>
         <span>联系人</span>
@@ -95,7 +109,11 @@ const handleLogout = async () => {
     </div>
 
     <div class="tool-actions">
-      <el-tooltip effect="dark" :content="currentTheme === 'dark' ? '明亮模式' : '暗黑模式'" :placement="isPc ? 'right' : 'bottom'">
+      <el-tooltip
+        effect="dark"
+        :content="currentTheme === 'dark' ? '明亮模式' : '暗黑模式'"
+        :placement="isPc ? 'right' : 'bottom'"
+      >
         <div class="theme-toggle" @click="toggleTheme">
           <IEpSunny v-if="currentTheme === 'dark'" :size="20" />
           <IEpMoon v-else :size="20" />

@@ -20,6 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @AllArgsConstructor
@@ -124,6 +125,50 @@ public class MinIOTemplate {
     public InputStream getObject(String bucketName, String ossFilePath) {
         return minioClient.getObject(
                 GetObjectArgs.builder().bucket(bucketName).object(ossFilePath).build());
+    }
+
+    @SneakyThrows
+    public InputStream getObject(String objectKey) {
+        return minioClient.getObject(GetObjectArgs.builder()
+                .bucket(ossProperties.getBucketName()).object(objectKey).build());
+    }
+
+    @SneakyThrows
+    public void putObject(String objectKey, InputStream inputStream, long size, String contentType) {
+        minioClient.putObject(PutObjectArgs.builder()
+                .bucket(ossProperties.getBucketName())
+                .object(objectKey)
+                .stream(inputStream, size, -1)
+                .contentType(contentType)
+                .build());
+    }
+
+    @SneakyThrows
+    public String getPresignedUploadUrl(String objectKey, int expirySeconds) {
+        return presignClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                .method(Method.PUT).bucket(ossProperties.getBucketName()).object(objectKey)
+                .expiry(expirySeconds, TimeUnit.SECONDS).build());
+    }
+
+    @SneakyThrows
+    public String getPresignedDownloadUrl(String objectKey, int expirySeconds) {
+        return presignClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                .method(Method.GET).bucket(ossProperties.getBucketName()).object(objectKey)
+                .expiry(expirySeconds, TimeUnit.SECONDS).build());
+    }
+
+    public String getPublicObjectUrl(String objectKey) {
+        return getDownloadUrl(ossProperties.getBucketName(), objectKey);
+    }
+
+    @SneakyThrows
+    public StatObjectResponse statObject(String objectKey) {
+        return minioClient.statObject(StatObjectArgs.builder().bucket(ossProperties.getBucketName()).object(objectKey).build());
+    }
+
+    @SneakyThrows
+    public void removeObject(String objectKey) {
+        minioClient.removeObject(RemoveObjectArgs.builder().bucket(ossProperties.getBucketName()).object(objectKey).build());
     }
 
     /**

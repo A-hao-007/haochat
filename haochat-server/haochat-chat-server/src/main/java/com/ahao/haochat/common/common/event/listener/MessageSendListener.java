@@ -14,6 +14,7 @@ import com.ahao.haochat.common.chat.service.WeChatMsgOperationService;
 import com.ahao.haochat.common.chat.service.cache.GroupMemberCache;
 import com.ahao.haochat.common.chat.service.cache.RoomCache;
 import com.ahao.haochat.common.chatai.service.IChatAIService;
+import com.ahao.haochat.common.chatai.memory.AiMemoryExtractionService;
 import com.ahao.haochat.common.common.event.MessageSendEvent;
 import com.ahao.haochat.common.user.service.adapter.WSAdapter;
 import com.ahao.haochat.common.user.service.impl.PushService;
@@ -49,6 +50,8 @@ public class MessageSendListener {
     private MessageDao messageDao;
     @Autowired
     private IChatAIService openAIService;
+    @Autowired
+    private AiMemoryExtractionService aiMemoryExtractionService;
     @Autowired
     WeChatMsgOperationService weChatMsgOperationService;
     @Autowired
@@ -150,9 +153,21 @@ public class MessageSendListener {
 
     @TransactionalEventListener(classes = MessageSendEvent.class, fallbackExecution = true)
     public void handlerMsg(@NotNull MessageSendEvent event) {
+        // AI execution is consumed from the reliable business-event topic.
+        if (event.getMsgId() != null) {
+            return;
+        }
         Message message = messageDao.getById(event.getMsgId());
         // AI 在任何房间被 @ 时都会尝试回复
         openAIService.chat(message);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, classes = MessageSendEvent.class, fallbackExecution = true)
+    public void captureLongTermMemory(@NotNull MessageSendEvent event) {
+        Message message = messageDao.getById(event.getMsgId());
+        if (message != null) {
+            aiMemoryExtractionService.capture(message);
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ import com.ahao.haochat.common.chat.domain.vo.request.member.MemberReq;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatMemberListResp;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatRoomResp;
 import com.ahao.haochat.common.chat.domain.vo.response.MemberResp;
+import com.ahao.haochat.common.chat.domain.entity.GroupOperationLog;
 import com.ahao.haochat.common.common.domain.vo.request.CursorPageBaseReq;
 import com.ahao.haochat.common.common.domain.vo.response.CursorPageBaseResp;
 import com.ahao.haochat.common.user.domain.vo.response.ws.ChatMemberResp;
@@ -58,4 +59,7 @@ public interface RoomAppService {
 
     /** 我的群组列表（创建的+加入的） */
     List<ChatRoomResp> getMyGroupList(Long uid);
+
+    /** 群操作日志 */
+    CursorPageBaseResp<GroupOperationLog> getGroupLogPage(Long uid, GroupLogPageReq request);
 }

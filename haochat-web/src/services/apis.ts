@@ -45,8 +45,13 @@ export default {
   login: (params: { username: string; password: string }) =>
     postRequest<AuthTokenResp>(urls.login, params),
   /** 注册 */
-  register: (params: { username: string; name: string; password: string; email: string; emailCode: string }) =>
-    postRequest<{ uid: number; username: string; name: string }>(urls.register, params),
+  register: (params: {
+    username: string
+    name: string
+    password: string
+    email: string
+    emailCode: string
+  }) => postRequest<{ uid: number; username: string; name: string }>(urls.register, params),
   /** 注册-发送邮箱验证码 */
   registerEmailCode: (params: { email: string }) =>
     postRequest<void>(urls.registerEmailCode, params),
@@ -56,7 +61,8 @@ export default {
   loginEmailCode: (params: { email: string }) => postRequest<void>(urls.loginEmailCode, params),
   emailCodeLogin: (params: { email: string; code: string }) =>
     postRequest<AuthTokenResp>(urls.emailCodeLogin, params),
-  refreshToken: (refreshToken: string) => postRequest<AuthTokenResp>(urls.refreshToken, { refreshToken }),
+  refreshToken: (refreshToken: string) =>
+    postRequest<AuthTokenResp>(urls.refreshToken, { refreshToken }),
   logout: (refreshToken?: string) => postRequest<void>(urls.logout, { refreshToken }),
   /** 找回密码-发送验证码 */
   forgotCode: (params: { email: string }) => postRequest<void>(urls.forgotCode, params),
@@ -69,7 +75,9 @@ export default {
   bindEmail: (params: { email: string; code: string }) => putRequest<void>(urls.bindEmail, params),
   /** 搜索用户 */
   searchUser: (keyword: string) =>
-    getRequest<{ uid: number; name: string; avatar: string }[]>(urls.searchUser, { params: { keyword } }),
+    getRequest<{ uid: number; name: string; avatar: string }[]>(urls.searchUser, {
+      params: { keyword },
+    }),
 
   /** 获取群成员列表 */
   getGroupList: (params?: any) => getRequest<ListResponse<UserItem>>(urls.getGroupUserList, params),
@@ -79,8 +87,7 @@ export default {
   getAllUserBaseInfo: (params?: any) =>
     getRequest<Pick<CacheUserItem, 'avatar' | 'name' | 'uid'>[]>(urls.getAllUserBaseInfo, params),
   /** 已启用的AI助手列表 */
-  getAiBots: () =>
-    getRequest<Pick<CacheUserItem, 'avatar' | 'name' | 'uid'>[]>(urls.getAiBots),
+  getAiBots: () => getRequest<Pick<CacheUserItem, 'avatar' | 'name' | 'uid'>[]>(urls.getAiBots),
   /** 批量获取成员详细信息 */
   getUserInfoBatch: (users: CacheUserReq[]) =>
     postRequest<CacheUserItem[]>(urls.getUserInfoBatch, { reqList: users }),
@@ -122,6 +129,44 @@ export default {
   /** 获取临时上传链接 */
   getUploadUrl: (params: any) =>
     getRequest<{ downloadUrl: string; uploadUrl: string }>(urls.fileUpload, { params }),
+  initFileUpload: (params: {
+    scene: 'avatar' | 'chat-image' | 'chat-file'
+    fileName: string
+    contentType: string
+    size: number
+    roomId?: number
+  }) =>
+    postRequest<{ assetId: number; uploadUrl: string; expiresInSeconds: number }>(
+      urls.fileUploadInit,
+      params,
+    ),
+  completeFileUpload: (assetId: number) =>
+    postRequest<{ assetId: number; downloadUrl: string }>(urls.fileUploadComplete, { assetId }),
+  retryFileUpload: (assetId: number) =>
+    postRequest<{
+      assetId: number
+      status: number
+      uploadUrl?: string
+      downloadUrl?: string
+      expiresInSeconds: number
+    }>(`${urls.fileUploadRetry}/${assetId}/retry`),
+  getFileUploadStatus: (assetId: number) =>
+    getRequest<{
+      assetId: number
+      scene: string
+      status: number
+      roomId?: number
+      fileName: string
+      contentType: string
+      size: number
+      expireTime?: string
+      downloadUrl?: string
+    }>(`${urls.fileUploadRetry}/${assetId}/status`),
+  cancelFileUpload: (assetId: number) => deleteRequest<void>(`${urls.fileUploadRetry}/${assetId}`),
+  getFileDownload: (assetId: number) =>
+    getRequest<{ downloadUrl: string }>(`${urls.fileDownload}/${assetId}/download`),
+  bindAvatarAsset: (assetId: number) =>
+    putRequest<{ avatarUrl: string }>(`${urls.bindAvatarAsset}/${assetId}`),
   /** 新增表情包 */
   addEmoji: (data: { uid: number; expressionUrl: string }) =>
     postRequest<MessageType>(urls.addEmoji, data),
@@ -171,6 +216,14 @@ export default {
   /** 删除群成员 */
   removeGroupMember: (params: { roomId: number; uid: number }) =>
     deleteRequest(urls.inviteGroupMember, params),
+  /** 禁言群成员 */
+  muteGroupMember: (params: { roomId: number; uid: number; minutes: number }) =>
+    putRequest<void>(urls.muteGroupMember, params),
+  /** 取消群成员禁言 */
+  unmuteGroupMember: (params: { roomId: number; uid: number; minutes?: number }) =>
+    deleteRequest<void>(urls.muteGroupMember, params),
+  /** 群操作日志 */
+  groupLogPage: (params?: any) => getRequest<ListResponse<any>>(urls.groupLogPage, params),
   /** 群组详情 */
   groupDetail: (params: { id: number }) => getRequest<GroupDetailReq>(urls.groupDetail, { params }),
   /** 会话详情 */
@@ -203,8 +256,7 @@ export default {
   updateGroupNotice: (params: { roomId: number; notice: string }) =>
     putRequest<void>(urls.updateGroupNotice, params),
   /** 标记群公告已读 */
-  readGroupNotice: (params: { roomId: number }) =>
-    putRequest<void>(urls.readGroupNotice, params),
+  readGroupNotice: (params: { roomId: number }) => putRequest<void>(urls.readGroupNotice, params),
   /** 更新我在群里的昵称 */
   updateGroupNickname: (params: { roomId: number; nickname: string }) =>
     putRequest<void>(urls.updateGroupNickname, params),
@@ -227,7 +279,7 @@ export default {
     const fd = new FormData()
     fd.append('file', file)
     return alovaIns.Post<{ url: string }>(urls.uploadFile, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
 }

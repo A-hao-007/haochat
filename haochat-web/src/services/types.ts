@@ -267,6 +267,7 @@ export type MessageMarkType = {
 
 /** 图片消息体 */
 export type ImageBody = {
+  assetId?: number
   size: number
   url: string
   width: number
@@ -289,6 +290,7 @@ export type VideoBody = {
 }
 /** 文件消息体 */
 export type FileBody = {
+  assetId?: number
   size: number
   fileName: string
   url: string

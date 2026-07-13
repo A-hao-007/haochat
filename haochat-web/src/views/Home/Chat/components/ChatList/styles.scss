@@ -25,7 +25,7 @@
     padding: 16px 0;
     font-size: 14px;
     color: #8a98ab;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, transparent 85%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 94%) 0%, transparent 85%);
 
     svg {
       @keyframes rotate {
@@ -68,7 +68,7 @@
   background: #fff;
   border: 1px solid #dbe6f3;
   border-radius: 12px;
-  box-shadow: 0 10px 24px rgba(51, 75, 105, 0.12);
+  box-shadow: 0 10px 24px rgba(51, 75, 105, 12%);
 
   &:hover {
     background: #f3f7fd;
@@ -100,7 +100,7 @@
   background: #fff;
   border: 1px solid #dbe6f3;
   border-radius: 12px;
-  box-shadow: 0 10px 24px rgba(51, 75, 105, 0.12);
+  box-shadow: 0 10px 24px rgba(51, 75, 105, 12%);
 
   &:hover {
     background: #f3f7fd;

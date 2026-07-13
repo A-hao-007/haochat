@@ -56,6 +56,16 @@ const badgeInfo = useBadgeInfo(wearingItemId)
 const isCurrentUser = computed(() => fromUser.value.uid === userStore?.userInfo.uid)
 // [AI-CONTEXT] AI助手消息的视觉区分标记，来自后端按已注册AI uid名单计算的isBot字段
 const isBotMsg = computed(() => !!fromUser.value.isBot)
+const stoppedStreamId = ref<string | null>(null)
+const isStreaming = computed(
+  () => !!props.msg.streaming && props.msg.streamId !== stoppedStreamId.value,
+)
+watch(
+  () => props.msg.streamId,
+  () => {
+    stoppedStreamId.value = null
+  },
+)
 // 未读分割线画在本条消息上方
 const isFirstUnread = computed(
   () => chatStore.firstUnreadMsgId.get(message.value.roomId) === message.value.id,
@@ -66,7 +76,7 @@ const isFirstUnread = computed(
 const onStopStream = async () => {
   const streamId = props.msg.streamId
   if (!streamId) return
-  props.msg.streaming = false
+  stoppedStreamId.value = streamId
   try {
     await apis.stopAiStream({ streamId }).send()
   } catch {
@@ -306,10 +316,10 @@ const handleConfirmAction = async (confirmed: boolean) => {
               <!-- 渲染消息内容体 -->
               <RenderMessage :message="message" :is-bot="isBotMsg" />
               <!-- AI流式回复生成中的打字机光标 -->
-              <span v-if="msg?.streaming" class="streaming-cursor" />
+              <span v-if="isStreaming" class="streaming-cursor" />
               <!-- 停止生成 -->
               <span
-                v-if="msg?.streaming && msg?.streamId"
+                v-if="isStreaming && msg?.streamId"
                 class="streaming-stop"
                 title="停止生成"
                 @click.stop="onStopStream"

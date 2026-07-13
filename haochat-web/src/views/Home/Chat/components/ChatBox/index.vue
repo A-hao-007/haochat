@@ -12,7 +12,9 @@ const isSelect = ref(false)
 const globalStore = useGlobalStore()
 const chatStore = useChatStore()
 const currentSession = computed(() => globalStore.currentSession)
-const showUserList = computed(() => !!chatStore.currentSessionInfo && currentSession.value.type === RoomTypeEnum.Group)
+const showUserList = computed(
+  () => !!chatStore.currentSessionInfo && currentSession.value.type === RoomTypeEnum.Group,
+)
 
 // 输入状态（模拟 - 将来可从 WebSocket 获取）
 const typingUsers = reactive<Map<number, string>>(new Map())
@@ -43,9 +45,7 @@ defineExpose({ updateTyping })
             <span class="dot" />
             <span class="dot" />
           </span>
-          <span class="typing-text">
-            {{ [...typingUsers.values()].join(', ') }} 正在输入...
-          </span>
+          <span class="typing-text"> {{ [...typingUsers.values()].join(', ') }} 正在输入... </span>
         </div>
         <SendBar :onTyping="(uid: number, name: string) => updateTyping(uid, name)" />
       </div>

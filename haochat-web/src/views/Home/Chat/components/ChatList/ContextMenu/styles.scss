@@ -11,17 +11,30 @@
     color: var(--font-main) !important;
     border-radius: var(--radius-sm) !important;
 
-    .label { padding: 0 !important; font-size: 13px !important; }
-    &:hover { background-color: var(--bg-hover) !important; }
-    &.disabled { color: var(--font-light) !important; }
+    .label {
+      padding: 0 !important;
+      font-size: 13px !important;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover) !important;
+    }
+
+    &.disabled {
+      color: var(--font-light) !important;
+    }
   }
 
   .mx-context-menu-item-sperator {
     background-color: transparent !important;
-    &::after { background-color: var(--border-light) !important; }
+
+    &::after {
+      background-color: var(--border-light) !important;
+    }
   }
 
   .mx-icon-placeholder {
-    width: auto !important; padding-right: 8px !important;
+    width: auto !important;
+    padding-right: 8px !important;
   }
 }

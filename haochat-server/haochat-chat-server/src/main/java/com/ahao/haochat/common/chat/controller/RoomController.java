@@ -7,8 +7,10 @@ import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminRevokeReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberDelReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberExitReq;
+import com.ahao.haochat.common.chat.domain.vo.request.member.MemberMuteReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.TransferLordReq;
+import com.ahao.haochat.common.chat.domain.entity.GroupOperationLog;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatMemberListResp;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatRoomResp;
 import com.ahao.haochat.common.chat.domain.vo.response.MemberResp;
@@ -115,6 +117,22 @@ public class RoomController {
         return ApiResult.success();
     }
 
+    @PutMapping("/group/member/mute")
+    @ApiOperation("禁言群成员")
+    public ApiResult<Void> muteMember(@Valid @RequestBody MemberMuteReq request) {
+        Long uid = RequestHolder.get().getUid();
+        groupMemberService.muteMember(uid, request);
+        return ApiResult.success();
+    }
+
+    @DeleteMapping("/group/member/mute")
+    @ApiOperation("取消群成员禁言")
+    public ApiResult<Void> unmuteMember(@Valid @RequestBody MemberMuteReq request) {
+        Long uid = RequestHolder.get().getUid();
+        groupMemberService.unmuteMember(uid, request);
+        return ApiResult.success();
+    }
+
     @PutMapping("/group/lord")
     @ApiOperation("转让群主")
     public ApiResult<Void> transferLord(@Valid @RequestBody TransferLordReq request) {
@@ -152,5 +170,12 @@ public class RoomController {
     public ApiResult<List<ChatRoomResp>> myGroupList() {
         Long uid = RequestHolder.get().getUid();
         return ApiResult.success(roomService.getMyGroupList(uid));
+    }
+
+    @GetMapping("/group/log/page")
+    @ApiOperation("群操作日志")
+    public ApiResult<CursorPageBaseResp<GroupOperationLog>> groupLogPage(@Valid GroupLogPageReq request) {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(roomService.getGroupLogPage(uid, request));
     }
 }

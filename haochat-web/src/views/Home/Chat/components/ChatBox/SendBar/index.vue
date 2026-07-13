@@ -96,35 +96,35 @@ onBeforeUnmount(() => {
   eventBus.off('onEditMsg', onEditMsg)
 })
 
-	// 发送消息
-	const send = (msgType: MsgEnum, body: any) => {
-	  apis
-	    .sendMsg({ roomId: globalStore.currentSession.roomId, msgType, body })
-	    .send()
-	    .then((res) => {
-	      if (res.message.type === MsgEnum.TEXT) {
-	        chatStore.pushMsg(res) // 消息列表新增一条消息
-	      } else {
-	        // 更新上传状态下的消息
-	        chatStore.updateMsg(tempMessageId.value, res)
-	      }
-	      inputMsg.value = '' // 清空输入列表
-	      onClearReply() // 置空回复的消息
+// 发送消息
+const send = (msgType: MsgEnum, body: any) => {
+  apis
+    .sendMsg({ roomId: globalStore.currentSession.roomId, msgType, body })
+    .send()
+    .then((res) => {
+      if (res.message.type === MsgEnum.TEXT) {
+        chatStore.pushMsg(res) // 消息列表新增一条消息
+      } else {
+        // 更新上传状态下的消息
+        chatStore.updateMsg(tempMessageId.value, res)
+      }
+      inputMsg.value = '' // 清空输入列表
+      onClearReply() // 置空回复的消息
 
-	      // 发完消息就要刷新会话列表，
-	      //  FIXME 如果当前会话已经置顶了，可以不用刷新
-	      chatStore.updateSessionLastActiveTime(globalStore.currentSession.roomId)
-	    })
-	    .catch(() => {
-	      // 发送失败时移除 mock 消息，防止永久卡加载
-	      chatStore.deleteMsg(tempMessageId.value)
-	    })
-	    .finally(() => {
-	      isSending.value = false
-	      focusMsgInput() // 输入框重新获取焦点
-	      chatStore.chatListToBottomAction?.() // 滚动到消息列表底部
-	    })
-	}
+      // 发完消息就要刷新会话列表，
+      //  FIXME 如果当前会话已经置顶了，可以不用刷新
+      chatStore.updateSessionLastActiveTime(globalStore.currentSession.roomId)
+    })
+    .catch(() => {
+      // 发送失败时移除 mock 消息，防止永久卡加载
+      chatStore.deleteMsg(tempMessageId.value)
+    })
+    .finally(() => {
+      isSending.value = false
+      focusMsgInput() // 输入框重新获取焦点
+      chatStore.chatListToBottomAction?.() // 滚动到消息列表底部
+    })
+}
 
 const sendMsgHandler = () => {
   // 空消息或正在发送时禁止发送
@@ -239,7 +239,10 @@ const selectAndUploadFile = async (files?: FileList | null) => {
   if (isUpEmoji.value) {
     await uploadEmoji(file)
   } else {
-    await uploadFile(file)
+    await uploadFile(file, {
+      roomId: globalStore.currentSession.roomId,
+      scene: nowMsgType.value === MsgEnum.IMAGE ? 'chat-image' : 'chat-file',
+    })
   }
 }
 
@@ -276,7 +279,12 @@ useUploadChange((status) => {
   reset()
 })
 
-onEnd((audioFile: any) => uploadFile(audioFile))
+onEnd((audioFile: any) =>
+  uploadFile(audioFile, {
+    roomId: globalStore.currentSession.roomId,
+    scene: 'chat-file',
+  }),
+)
 
 const onStartRecord = () => {
   nowMsgType.value = MsgEnum.VOICE
@@ -331,7 +339,9 @@ const sendEmoji = throttle((url: string) => {
         autofocus
         :tabindex="!isSign || isSending"
         :disabled="!isSign || isSending"
-        :placeholder="isSign ? (isSending ? '消息发送中' : editingMsg ? '正在编辑消息' : '来聊点什么吧~') : ''"
+        :placeholder="
+          isSign ? (isSending ? '消息发送中' : editingMsg ? '正在编辑消息' : '来聊点什么吧~') : ''
+        "
         :mentions="mentionList"
         @change="onInputChange"
         @send="sendMsgHandler"

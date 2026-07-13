@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.user.service;
 
 import cn.hutool.core.util.RandomUtil;
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.exception.BusinessException;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.common.utils.RedisUtils;
@@ -127,7 +128,10 @@ public class EmailAuthService {
 
     private void sendCode(String key, String email) {
         String code = RandomUtil.randomNumbers(6);
-        RedisUtils.set(key, code, CODE_TTL_MINUTES, TimeUnit.MINUTES);
+        Boolean cached = RedisUtils.set(key, code, CODE_TTL_MINUTES, TimeUnit.MINUTES);
+        if (!Boolean.TRUE.equals(cached)) {
+            throw new BusinessException("验证码服务暂不可用，请稍后再试");
+        }
         mailService.sendCode(email, code);
     }
 
@@ -143,6 +147,6 @@ public class EmailAuthService {
     }
 
     private String codeKey(String scene, String email) {
-        return "email:code:" + scene + ":" + email;
+        return RedisKey.getKey(RedisKey.EMAIL_CODE_STRING, scene, email);
     }
 }

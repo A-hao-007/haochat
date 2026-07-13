@@ -23,4 +23,22 @@ public class AgentTaskDao extends ServiceImpl<AgentTaskMapper, AgentTask> {
                 .le(AgentTask::getNextRunTime, now)
                 .list();
     }
+
+    public boolean claimDue(Long taskId, Date now) {
+        return lambdaUpdate()
+                .eq(AgentTask::getId, taskId)
+                .in(AgentTask::getStatus, Arrays.asList(AgentTaskStatus.PENDING, AgentTaskStatus.WAITING))
+                .le(AgentTask::getNextRunTime, now)
+                .set(AgentTask::getStatus, AgentTaskStatus.RUNNING)
+                .set(AgentTask::getLastRunTime, now)
+                .update();
+    }
+
+    public void markFailed(Long taskId) {
+        lambdaUpdate()
+                .eq(AgentTask::getId, taskId)
+                .set(AgentTask::getStatus, AgentTaskStatus.FAILED)
+                .set(AgentTask::getLastRunTime, new Date())
+                .update();
+    }
 }

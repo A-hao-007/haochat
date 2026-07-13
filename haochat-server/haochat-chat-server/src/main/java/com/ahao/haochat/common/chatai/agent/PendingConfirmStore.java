@@ -1,5 +1,6 @@
 package com.ahao.haochat.common.chatai.agent;
 
+import com.ahao.haochat.common.common.constant.RedisKey;
 import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,6 @@ public class PendingConfirmStore {
     }
 
     private String key(Long roomId, Long uid) {
-        return "ai:pending_confirm:" + roomId + ":" + uid;
+        return RedisKey.getKey(RedisKey.AI_PENDING_CONFIRM_STRING, roomId, uid);
     }
 }

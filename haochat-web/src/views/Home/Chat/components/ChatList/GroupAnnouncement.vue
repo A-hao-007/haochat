@@ -32,7 +32,9 @@ const canEdit = computed(() => {
 const toggleExpand = () => {
   expanded.value = !expanded.value
   if (expanded.value && hasAnnouncement.value && !readByMe.value) {
-    groupStore.readNotice().catch(() => {})
+    groupStore.readNotice().catch(() => {
+      // A read marker is best-effort and should not block expanding the announcement.
+    })
   }
 }
 
@@ -56,10 +58,13 @@ const saveAnnouncement = async () => {
 }
 
 // 切换群聊时重置编辑/展开态，避免把上一个群的草稿带到新群
-watch(() => groupStore.countInfo.roomId, () => {
-  editing.value = false
-  expanded.value = false
-})
+watch(
+  () => groupStore.countInfo.roomId,
+  () => {
+    editing.value = false
+    expanded.value = false
+  },
+)
 </script>
 
 <template>
@@ -73,7 +78,9 @@ watch(() => groupStore.countInfo.roomId, () => {
         <span class="summary-text">{{ announcement }}</span>
         <span v-if="!readByMe" class="unread-dot" />
       </template>
-      <span v-else class="summary-text placeholder">暂无群公告{{ canEdit ? '，点击发布一条' : '' }}</span>
+      <span v-else class="summary-text placeholder"
+        >暂无群公告{{ canEdit ? '，点击发布一条' : '' }}</span
+      >
       <IEpArrowDown :size="12" class="arrow" :class="{ flipped: expanded }" />
     </div>
 
@@ -89,7 +96,9 @@ watch(() => groupStore.countInfo.roomId, () => {
         />
         <div class="announcement-actions">
           <el-button size="small" @click="editing = false">取消</el-button>
-          <el-button size="small" type="primary" :loading="saving" @click="saveAnnouncement">发布</el-button>
+          <el-button size="small" type="primary" :loading="saving" @click="saveAnnouncement"
+            >发布</el-button
+          >
         </div>
       </template>
       <template v-else-if="hasAnnouncement">
@@ -119,9 +128,9 @@ watch(() => groupStore.countInfo.roomId, () => {
 
 <style lang="scss" scoped>
 .group-announcement {
+  flex-shrink: 0;
   margin: 8px 16px 0;
   overflow: hidden;
-  flex-shrink: 0;
   background: var(--bg-active);
   border: 1px solid var(--color-primary-light);
   border-radius: var(--radius-md);
@@ -133,29 +142,29 @@ watch(() => groupStore.countInfo.roomId, () => {
 
   .announcement-summary {
     display: flex;
-    align-items: center;
     gap: 6px;
+    align-items: center;
     padding: 8px 12px;
-    cursor: pointer;
-    color: var(--color-primary);
     font-size: 13px;
     font-weight: 500;
+    color: var(--color-primary);
+    cursor: pointer;
     user-select: none;
 
     .summary-icon {
       display: flex;
-      align-items: center;
       flex-shrink: 0;
+      align-items: center;
     }
 
     .summary-text {
       flex: 1;
       min-width: 0;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      color: var(--font-main);
       font-weight: 400;
+      color: var(--font-main);
+      text-overflow: ellipsis;
+      white-space: nowrap;
 
       &.placeholder {
         color: var(--font-light);
@@ -163,11 +172,11 @@ watch(() => groupStore.countInfo.roomId, () => {
     }
 
     .unread-dot {
+      flex-shrink: 0;
       width: 6px;
       height: 6px;
-      flex-shrink: 0;
-      border-radius: 50%;
       background: #ef4444;
+      border-radius: 50%;
     }
 
     .arrow {
@@ -187,23 +196,23 @@ watch(() => groupStore.countInfo.roomId, () => {
     .announcement-text {
       margin: 8px 0 10px;
       font-size: 13px;
-      color: var(--font-main);
       line-height: 1.6;
+      color: var(--font-main);
       white-space: pre-wrap;
     }
 
     .announcement-meta {
       display: flex;
+      gap: 8px;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
       padding-top: 8px;
       border-top: 1px dashed var(--border-light);
 
       .meta-left {
         display: flex;
-        align-items: center;
         gap: 6px;
+        align-items: center;
         min-width: 0;
         overflow: hidden;
 
@@ -229,28 +238,28 @@ watch(() => groupStore.countInfo.roomId, () => {
 
     .announcement-edit-btn {
       display: inline-flex;
-      align-items: center;
       gap: 4px;
-      margin-top: 10px;
+      align-items: center;
+      width: fit-content;
       padding: 4px 10px;
+      margin-top: 10px;
       font-size: 12px;
       color: var(--color-primary);
+      cursor: pointer;
       background: var(--color-primary-light);
       border-radius: var(--radius-sm);
-      cursor: pointer;
-      width: fit-content;
 
       &:hover {
-        background: var(--color-primary);
         color: #fff;
+        background: var(--color-primary);
       }
     }
 
     .announcement-empty {
       display: flex;
       flex-direction: column;
-      align-items: center;
       gap: 8px;
+      align-items: center;
       padding: 16px 0 8px;
       text-align: center;
 
@@ -267,26 +276,26 @@ watch(() => groupStore.countInfo.roomId, () => {
 
     .announcement-editor {
       width: 100%;
-      margin-top: 8px;
       padding: 8px;
+      margin-top: 8px;
+      font-family: inherit;
       font-size: 13px;
       color: var(--font-main);
+      resize: vertical;
       background: var(--bg-input);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      resize: vertical;
-      font-family: inherit;
 
       &:focus {
-        outline: none;
         border-color: var(--color-primary);
+        outline: none;
       }
     }
 
     .announcement-actions {
       display: flex;
-      justify-content: flex-end;
       gap: 8px;
+      justify-content: flex-end;
       margin-top: 8px;
     }
   }

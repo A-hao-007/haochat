@@ -5,15 +5,20 @@ import cn.hutool.core.lang.Pair;
 import com.ahao.haochat.common.chat.dao.ContactDao;
 import com.ahao.haochat.common.chat.dao.GroupMemberDao;
 import com.ahao.haochat.common.chat.dao.MessageDao;
+import com.ahao.haochat.common.chat.dao.GroupOperationLogDao;
 import com.ahao.haochat.common.chat.domain.dto.GroupNoticeDTO;
 import com.ahao.haochat.common.chat.domain.dto.RoomBaseInfo;
 import com.ahao.haochat.common.chat.domain.entity.*;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleAPPEnum;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleEnum;
+import com.ahao.haochat.common.chat.domain.enums.GroupOperationTypeEnum;
 import com.ahao.haochat.common.chat.domain.enums.HotFlagEnum;
+import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
 import com.ahao.haochat.common.chat.domain.enums.RoomTypeEnum;
 import com.ahao.haochat.common.chat.domain.vo.request.ChatMessageMemberReq;
+import com.ahao.haochat.common.chat.domain.vo.request.ChatMessageReq;
 import com.ahao.haochat.common.chat.domain.vo.request.GroupAddReq;
+import com.ahao.haochat.common.chat.domain.vo.request.GroupLogPageReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberDelReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberReq;
@@ -38,11 +43,9 @@ import com.ahao.haochat.common.common.exception.GroupErrorEnum;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.user.dao.UserDao;
 import com.ahao.haochat.common.user.domain.entity.User;
-import com.ahao.haochat.common.user.domain.enums.RoleEnum;
 import com.ahao.haochat.common.user.domain.enums.WSBaseResp;
 import com.ahao.haochat.common.user.domain.vo.response.ws.ChatMemberResp;
 import com.ahao.haochat.common.user.domain.vo.response.ws.WSMemberChange;
-import com.ahao.haochat.common.user.service.IRoleService;
 import com.ahao.haochat.common.user.service.cache.UserCache;
 import com.ahao.haochat.common.user.service.cache.UserInfoCache;
 import com.ahao.haochat.common.user.service.impl.PushService;
@@ -90,8 +93,6 @@ public class RoomAppServiceImpl implements RoomAppService {
     @Autowired
     private ChatService chatService;
     @Autowired
-    private IRoleService iRoleService;
-    @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
     @Autowired
     private RoomService roomService;
@@ -101,6 +102,8 @@ public class RoomAppServiceImpl implements RoomAppService {
     private PushService pushService;
     @Autowired
     private com.ahao.haochat.common.chat.dao.RoomGroupDao roomGroupDao;
+    @Autowired
+    private GroupOperationLogDao groupOperationLogDao;
 
     @Override
     public CursorPageBaseResp<ChatRoomResp> getContactPage(CursorPageBaseReq request, Long uid) {
@@ -200,6 +203,9 @@ public class RoomAppServiceImpl implements RoomAppService {
         boolean canEdit = groupMemberDao.isLord(roomGroup.getId(), uid) || groupMemberDao.isManager(roomGroup.getId(), uid);
         AssertUtil.isTrue(canEdit, GroupErrorEnum.NOT_ALLOWED_OPERATION);
         roomGroupDao.updateNotice(roomGroup.getId(), notice, uid);
+        String content = userName(uid) + "修改了群公告";
+        groupOperationLogDao.record(roomId, roomGroup.getId(), uid, null, GroupOperationTypeEnum.UPDATE_NOTICE, content);
+        sendSystemMsg(roomId, content);
         roomGroupCache.delete(roomId);
     }
 
@@ -220,6 +226,8 @@ public class RoomAppServiceImpl implements RoomAppService {
         GroupMember self = groupMemberDao.getMember(roomGroup.getId(), uid);
         AssertUtil.isNotEmpty(self, GroupErrorEnum.USER_NOT_IN_GROUP);
         groupMemberDao.updateNickname(roomGroup.getId(), uid, nickname);
+        groupOperationLogDao.record(roomId, roomGroup.getId(), uid, uid, GroupOperationTypeEnum.UPDATE_NICKNAME,
+                userName(uid) + "修改了群昵称");
     }
 
     @Override
@@ -327,9 +335,13 @@ public class RoomAppServiceImpl implements RoomAppService {
         AssertUtil.isTrue(hasPower(self), GroupErrorEnum.NOT_ALLOWED_FOR_REMOVE);
         GroupMember member = groupMemberDao.getMember(roomGroup.getId(), removedUid);
         AssertUtil.isNotEmpty(member, "用户已经移除");
-        groupMemberDao.removeById(member.getId());
-        // 发送移除事件告知群成员
         List<Long> memberUidList = groupMemberCache.getMemberUidList(roomGroup.getRoomId());
+        AssertUtil.isTrue(groupMemberDao.markRemoved(roomGroup.getId(), removedUid), "用户已经移除");
+        contactDao.remove(removedUid, roomGroup.getRoomId());
+        String content = userName(uid) + "将" + userName(removedUid) + "移出群聊";
+        groupOperationLogDao.record(roomGroup.getRoomId(), roomGroup.getId(), uid, removedUid, GroupOperationTypeEnum.REMOVE, content);
+        sendSystemMsg(roomGroup.getRoomId(), content);
+        // 发送移除事件告知群成员
         WSBaseResp<WSMemberChange> ws = MemberAdapter.buildMemberRemoveWS(roomGroup.getRoomId(), member.getUid());
         pushService.sendPushMsg(ws, memberUidList);
         groupMemberCache.evictMemberUidList(room.getId());
@@ -357,6 +369,8 @@ public class RoomAppServiceImpl implements RoomAppService {
         groupMemberDao.saveBatch(groupMembers);
         // 同步为新成员建立会话，确保群聊立即出现在其消息列表中
         contactDao.refreshOrCreateActiveTime(roomGroup.getRoomId(), waitAddUidList, null, new java.util.Date());
+        String content = userName(uid) + "邀请" + waitAddUidList.stream().map(this::userName).collect(Collectors.joining(",")) + "加入群聊";
+        groupOperationLogDao.record(roomGroup.getRoomId(), roomGroup.getId(), uid, null, GroupOperationTypeEnum.INVITE, content);
         applicationEventPublisher.publishEvent(new GroupMemberAddEvent(this, roomGroup, groupMembers, uid));
     }
 
@@ -365,21 +379,40 @@ public class RoomAppServiceImpl implements RoomAppService {
     public Long addGroup(Long uid, GroupAddReq request) {
         RoomGroup roomGroup = roomService.createGroupRoom(uid, request.getName());
         // 批量保存群成员
-        List<GroupMember> groupMembers = RoomAdapter.buildGroupMemberBatch(request.getUidList(), roomGroup.getId());
-        groupMemberDao.saveBatch(groupMembers);
+        List<Long> inviteUidList = Optional.ofNullable(request.getUidList()).orElse(Collections.emptyList())
+                .stream()
+                .filter(inviteUid -> !Objects.equals(inviteUid, uid))
+                .distinct()
+                .collect(Collectors.toList());
+        List<GroupMember> groupMembers = RoomAdapter.buildGroupMemberBatch(inviteUidList, roomGroup.getId());
+        if (CollectionUtil.isNotEmpty(groupMembers)) {
+            groupMemberDao.saveBatch(groupMembers);
+        }
         // 同步为所有成员（创建者+被邀请人）建立会话，确保群聊立即出现在消息列表中
-        List<Long> allUidList = new java.util.ArrayList<>(request.getUidList());
+        List<Long> allUidList = new java.util.ArrayList<>(inviteUidList);
         allUidList.add(uid);
         contactDao.refreshOrCreateActiveTime(roomGroup.getRoomId(), allUidList, null, new java.util.Date());
-        // 发送邀请加群消息==》触发每个人的会话
-        applicationEventPublisher.publishEvent(new GroupMemberAddEvent(this, roomGroup, groupMembers, uid));
+        String content = userName(uid) + "创建了群聊";
+        groupOperationLogDao.record(roomGroup.getRoomId(), roomGroup.getId(), uid, null, GroupOperationTypeEnum.CREATE, content);
+        sendSystemMsg(roomGroup.getRoomId(), content);
+        if (CollectionUtil.isNotEmpty(groupMembers)) {
+            applicationEventPublisher.publishEvent(new GroupMemberAddEvent(this, roomGroup, groupMembers, uid));
+        }
         return roomGroup.getRoomId();
+    }
+
+    @Override
+    public CursorPageBaseResp<GroupOperationLog> getGroupLogPage(Long uid, GroupLogPageReq request) {
+        RoomGroup roomGroup = roomGroupCache.get(request.getRoomId());
+        AssertUtil.isNotEmpty(roomGroup, "roomId有误");
+        GroupMember self = groupMemberDao.getMember(roomGroup.getId(), uid);
+        AssertUtil.isNotEmpty(self, GroupErrorEnum.USER_NOT_IN_GROUP);
+        return groupOperationLogDao.page(request.getRoomId(), request);
     }
 
     private boolean hasPower(GroupMember self) {
         return Objects.equals(self.getRole(), GroupRoleEnum.LEADER.getType())
-                || Objects.equals(self.getRole(), GroupRoleEnum.MANAGER.getType())
-                || iRoleService.hasPower(self.getUid(), RoleEnum.ADMIN);
+                || Objects.equals(self.getRole(), GroupRoleEnum.MANAGER.getType());
 
     }
 
@@ -396,6 +429,19 @@ public class RoomAppServiceImpl implements RoomAppService {
 
     private boolean isHotGroup(Room room) {
         return HotFlagEnum.YES.getType().equals(room.getHotFlag());
+    }
+
+    private void sendSystemMsg(Long roomId, String content) {
+        ChatMessageReq req = new ChatMessageReq();
+        req.setRoomId(roomId);
+        req.setMsgType(MessageTypeEnum.SYSTEM.getType());
+        req.setBody(content);
+        chatService.sendMsg(req, User.UID_SYSTEM);
+    }
+
+    private String userName(Long uid) {
+        User user = userInfoCache.get(uid);
+        return user == null ? String.valueOf(uid) : user.getName();
     }
 
     private List<Contact> buildContact(List<Pair<Long, Double>> list, Long uid) {

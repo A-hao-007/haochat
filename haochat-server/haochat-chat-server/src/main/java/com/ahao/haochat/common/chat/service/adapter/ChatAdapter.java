@@ -73,6 +73,7 @@ public class ChatAdapter {
         roomGroup.setName(org.apache.commons.lang3.StringUtils.isNotBlank(name) ? name : user.getName() + "的群组");
         // avatar 字段为 NOT NULL，创建者未设置头像时落空字符串（前端对空头像有默认占位展示）
         roomGroup.setAvatar(org.apache.commons.lang3.StringUtils.defaultString(user.getAvatar()));
+        roomGroup.setOwnerUid(user.getId());
         roomGroup.setRoomId(roomId);
         return roomGroup;
     }

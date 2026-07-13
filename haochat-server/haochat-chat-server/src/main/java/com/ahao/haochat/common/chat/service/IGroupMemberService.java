@@ -3,6 +3,7 @@ package com.ahao.haochat.common.chat.service;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminAddReq;
 import com.ahao.haochat.common.chat.domain.vo.request.admin.AdminRevokeReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.MemberExitReq;
+import com.ahao.haochat.common.chat.domain.vo.request.member.MemberMuteReq;
 import com.ahao.haochat.common.chat.domain.vo.request.member.TransferLordReq;
 
 /**
@@ -45,4 +46,8 @@ public interface IGroupMemberService {
      * @param request 请求信息
      */
     void transferLord(Long uid, TransferLordReq request);
+
+    void muteMember(Long uid, MemberMuteReq request);
+
+    void unmuteMember(Long uid, MemberMuteReq request);
 }

@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.chat.service.adapter;
 
 import com.ahao.haochat.common.chat.domain.entity.GroupMember;
+import com.ahao.haochat.common.chat.domain.enums.GroupMemberStatusEnum;
 import com.ahao.haochat.common.chat.domain.enums.GroupRoleEnum;
 import com.ahao.haochat.common.chat.domain.vo.response.ChatMemberListResp;
 import com.ahao.haochat.common.user.domain.entity.User;
@@ -80,6 +81,7 @@ public class MemberAdapter {
             member.setGroupId(groupId);
             member.setUid(a);
             member.setRole(GroupRoleEnum.MEMBER.getType());
+            member.setStatus(GroupMemberStatusEnum.NORMAL.getStatus());
             return member;
         }).collect(Collectors.toList());
     }

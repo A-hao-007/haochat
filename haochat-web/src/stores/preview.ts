@@ -46,7 +46,7 @@ export const useVoicePreviewStore = defineStore('voice', () => {
     progress.value = 0
     audio.value?.pause()
     //  显式移除事件监听
-    audio.value?.removeEventListener('ended', () => {})
+    audio.value?.removeEventListener('ended', () => undefined)
     audio.value = null
   }
 

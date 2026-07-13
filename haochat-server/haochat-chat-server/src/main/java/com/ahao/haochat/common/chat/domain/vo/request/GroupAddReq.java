@@ -21,7 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 public class GroupAddReq {
     @NotNull
-    @Size(min = 1, max = 50)
+    @Size(max = 50)
     @ApiModelProperty("邀请的uid")
     private List<Long> uidList;
 

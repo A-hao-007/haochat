@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import type { MessageType } from '@/services/types'
 import { MsgEnum } from '@/enums'

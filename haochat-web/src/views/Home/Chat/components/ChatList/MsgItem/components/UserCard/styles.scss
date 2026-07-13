@@ -2,15 +2,14 @@
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 100;
   width: 240px;
   padding: 14px;
   background-color: var(--bg-glass);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  z-index: 100;
 
   &_top {
     display: flex;
@@ -24,13 +23,13 @@
 
       .online-dot {
         position: absolute;
-        bottom: 2px;
         right: -2px;
+        bottom: 2px;
         width: 12px;
         height: 12px;
-        border-radius: 50%;
-        border: 2px solid var(--bg-glass);
         background: var(--color-offline);
+        border: 2px solid var(--bg-glass);
+        border-radius: 50%;
 
         &.online {
           background: var(--color-online);
@@ -42,25 +41,25 @@
       min-width: 0;
 
       &_name {
+        margin-bottom: 4px;
+        overflow: hidden;
         font-size: 15px;
         font-weight: 600;
         color: var(--font-main);
-        overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        margin-bottom: 4px;
       }
 
       &_id {
+        margin-bottom: 2px;
         font-size: 12px;
         color: var(--font-light);
-        margin-bottom: 2px;
       }
 
       &_place {
         display: flex;
-        align-items: center;
         gap: 4px;
+        align-items: center;
         font-size: 12px;
         color: var(--font-light);
       }
@@ -73,8 +72,8 @@
 
     .status-row {
       display: flex;
-      align-items: center;
       gap: 6px;
+      align-items: center;
 
       .status-indicator {
         width: 8px;
@@ -103,23 +102,23 @@
     border-bottom: 1px solid var(--border-light);
 
     .badge-label {
+      margin-bottom: 6px;
       font-size: 11px;
       color: var(--font-light);
-      margin-bottom: 6px;
     }
 
     .badge-list {
       display: flex;
-      gap: 6px;
       flex-wrap: wrap;
+      gap: 6px;
     }
 
     .badge-item {
       width: 28px;
       height: 28px;
       padding: 2px;
-      border-radius: var(--radius-xs);
       background: var(--bg-tertiary);
+      border-radius: var(--radius-xs);
 
       &.active {
         background: var(--color-primary-light);
@@ -142,21 +141,21 @@
     .action-btn {
       display: flex;
       flex: 1;
+      gap: 6px;
       align-items: center;
       justify-content: center;
-      gap: 6px;
       padding: 8px;
       font-size: 13px;
       color: var(--font-main);
+      cursor: pointer;
       background: var(--hover-bg-1, #f1f3f5);
       border: none;
       border-radius: var(--radius-sm);
-      cursor: pointer;
       transition: all var(--transition-fast);
 
       &:hover {
-        transform: translateY(-1px);
         box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
       }
 
       &.primary {

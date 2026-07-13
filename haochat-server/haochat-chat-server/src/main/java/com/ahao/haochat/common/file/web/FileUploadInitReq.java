@@ -1,0 +1,1 @@
+package com.ahao.haochat.common.file.web; import lombok.Data; import javax.validation.constraints.*; @Data public class FileUploadInitReq { @NotBlank private String scene; @NotBlank @Size(max=255) private String fileName; @NotBlank @Size(max=128) private String contentType; @NotNull @Min(1) private Long size; private Long roomId; }

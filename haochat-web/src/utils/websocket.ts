@@ -47,12 +47,17 @@ function playMsgSound() {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.frequency.value = 800; osc.type = 'sine'
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 800
+    osc.type = 'sine'
     gain.gain.setValueAtTime(0.3, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.15)
-  } catch {}
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.15)
+  } catch {
+    // Browsers may block audio feedback until the user interacts with the page.
+  }
 }
 
 class WS {
@@ -191,7 +196,8 @@ class WS {
         userStore.userInfo = { ...userStore.userInfo, ...rest }
         localStorage.setItem('USER_INFO', JSON.stringify(rest))
         localStorage.setItem('TOKEN', token)
-        ;(params.data as any).refreshToken && localStorage.setItem('REFRESH_TOKEN', (params.data as any).refreshToken)
+        ;(params.data as any).refreshToken &&
+          localStorage.setItem('REFRESH_TOKEN', (params.data as any).refreshToken)
         // 更新一下请求里面的 token.
         computedToken.clear()
         computedToken.get()

@@ -22,4 +22,9 @@ public interface MQConstant {
      */
     String SCAN_MSG_TOPIC = "user_scan_send_msg";
     String SCAN_MSG_GROUP = "user_scan_send_msg_group";
+
+    /** Reliable business events used for asynchronous audit and downstream processing. */
+    String BUSINESS_EVENT_TOPIC = "haochat_business_event";
+    String BUSINESS_EVENT_GROUP = "haochat_business_event_group";
+    String BUSINESS_PROCESSOR_GROUP = "haochat_business_processor_group";
 }

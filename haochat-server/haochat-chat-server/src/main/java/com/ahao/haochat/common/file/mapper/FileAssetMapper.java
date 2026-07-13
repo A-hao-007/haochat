@@ -1,0 +1,1 @@
+package com.ahao.haochat.common.file.mapper; import com.ahao.haochat.common.file.domain.FileAsset; import com.baomidou.mybatisplus.core.mapper.BaseMapper; public interface FileAssetMapper extends BaseMapper<FileAsset>{}

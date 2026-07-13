@@ -47,6 +47,12 @@ public class RoomGroup implements Serializable {
     private String avatar;
 
     /**
+     * 群主uid
+     */
+    @TableField("owner_uid")
+    private Long ownerUid;
+
+    /**
      * 额外信息（根据不同类型房间有不同存储的东西）
      */
     @TableField("ext_json")
