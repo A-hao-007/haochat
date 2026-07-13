@@ -102,6 +102,11 @@ const doSearch = async () => {
   }
 }
 
+const clearSearch = () => {
+  searchKeyword.value = ''
+  searchResults.value = []
+}
+
 // 防抖搜索
 let searchTimer: ReturnType<typeof setTimeout>
 watch(searchKeyword, () => {
@@ -214,15 +219,7 @@ const deleteFriend = async (uid: number) => {
         placeholder="搜索用户名或昵称添加好友..."
         @keyup.enter="doSearch"
       />
-      <IEpClose
-        v-if="searchKeyword"
-        class="search-clear"
-        :size="14"
-        @click="
-          searchKeyword = ''
-          searchResults = []
-        "
-      />
+      <IEpClose v-if="searchKeyword" class="search-clear" :size="14" @click="clearSearch" />
     </div>
 
     <!-- 创建群聊按钮 -->
