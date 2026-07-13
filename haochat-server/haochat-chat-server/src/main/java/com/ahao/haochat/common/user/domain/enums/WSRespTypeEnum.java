@@ -29,6 +29,7 @@ public enum WSRespTypeEnum {
     APPLY(10, "好友申请", WSFriendApply.class),
     MEMBER_CHANGE(11, "成员变动", WSMemberChange.class),
     AGENT_STREAM_CHUNK(13, "AI流式回复片段", WSAgentStreamChunk.class),
+    MESSAGE_EDIT(14, "消息编辑", WSMessage.class),
     ;
 
     private final Integer type;

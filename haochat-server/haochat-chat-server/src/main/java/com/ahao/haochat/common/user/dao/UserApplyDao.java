@@ -1,7 +1,6 @@
 package com.ahao.haochat.common.user.dao;
 
 import com.ahao.haochat.common.user.domain.entity.UserApply;
-import com.ahao.haochat.common.user.domain.enums.ApplyStatusEnum;
 import com.ahao.haochat.common.user.domain.enums.ApplyTypeEnum;
 import com.ahao.haochat.common.user.mapper.UserApplyMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -14,6 +13,8 @@ import java.util.List;
 import static com.ahao.haochat.common.user.domain.enums.ApplyReadStatusEnum.READ;
 import static com.ahao.haochat.common.user.domain.enums.ApplyReadStatusEnum.UNREAD;
 import static com.ahao.haochat.common.user.domain.enums.ApplyStatusEnum.AGREE;
+import static com.ahao.haochat.common.user.domain.enums.ApplyStatusEnum.REJECT;
+import static com.ahao.haochat.common.user.domain.enums.ApplyStatusEnum.WAIT_APPROVAL;
 
 /**
  * <p>
@@ -29,7 +30,7 @@ public class UserApplyDao extends ServiceImpl<UserApplyMapper, UserApply> {
     public UserApply getFriendApproving(Long uid, Long targetUid) {
         return lambdaQuery().eq(UserApply::getUid, uid)
                 .eq(UserApply::getTargetId, targetUid)
-                .eq(UserApply::getStatus, ApplyStatusEnum.WAIT_APPROVAL)
+                .eq(UserApply::getStatus, WAIT_APPROVAL.getCode())
                 .eq(UserApply::getType, ApplyTypeEnum.ADD_FRIEND.getCode())
                 .one();
     }
@@ -48,6 +49,14 @@ public class UserApplyDao extends ServiceImpl<UserApplyMapper, UserApply> {
                 .page(page);
     }
 
+    public IPage<UserApply> sentFriendApplyPage(Long uid, Page page) {
+        return lambdaQuery()
+                .eq(UserApply::getUid, uid)
+                .eq(UserApply::getType, ApplyTypeEnum.ADD_FRIEND.getCode())
+                .orderByDesc(UserApply::getCreateTime)
+                .page(page);
+    }
+
     public void readApples(Long uid, List<Long> applyIds) {
         lambdaUpdate()
                 .set(UserApply::getReadStatus, READ.getCode())
@@ -57,9 +66,21 @@ public class UserApplyDao extends ServiceImpl<UserApplyMapper, UserApply> {
                 .update();
     }
 
-    public void agree(Long applyId) {
-        lambdaUpdate().set(UserApply::getStatus, AGREE.getCode())
+    public boolean agreeWaiting(Long applyId, Long targetId) {
+        return lambdaUpdate()
+                .set(UserApply::getStatus, AGREE.getCode())
                 .eq(UserApply::getId, applyId)
+                .eq(UserApply::getTargetId, targetId)
+                .eq(UserApply::getStatus, WAIT_APPROVAL.getCode())
+                .update();
+    }
+
+    public boolean rejectWaiting(Long applyId, Long targetId) {
+        return lambdaUpdate()
+                .set(UserApply::getStatus, REJECT.getCode())
+                .eq(UserApply::getId, applyId)
+                .eq(UserApply::getTargetId, targetId)
+                .eq(UserApply::getStatus, WAIT_APPROVAL.getCode())
                 .update();
     }
 }

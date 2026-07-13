@@ -10,8 +10,10 @@ export const useContactStore = defineStore('contact', () => {
   const globalStore = useGlobalStore()
   const contactsList = reactive<ContactItem[]>([])
   const requestFriendsList = reactive<RequestFriendItem[]>([])
+  const sentFriendsList = reactive<RequestFriendItem[]>([])
   const contactsOptions = reactive({ isLast: false, isLoading: false, cursor: '' })
-  const requestFriendsOptions = reactive({ isLast: false, isLoading: false, cursor: '' })
+  const requestFriendsOptions = reactive({ isLast: false, isLoading: false, pageNo: 1 })
+  const sentFriendsOptions = reactive({ isLast: false, isLoading: false, pageNo: 1 })
   const getContactList = async (isFresh = false) => {
     if (!isFresh) {
       if (contactsOptions.isLast || contactsOptions.isLoading) return
@@ -54,10 +56,11 @@ export const useContactStore = defineStore('contact', () => {
       if (requestFriendsOptions.isLast || requestFriendsOptions.isLoading) return
     }
     requestFriendsOptions.isLoading = true
+    const pageNo = isFresh ? 1 : requestFriendsOptions.pageNo
     const data = await apis
       .requestFriendList({
         pageSize,
-        cursor: isFresh || !requestFriendsOptions.cursor ? undefined : requestFriendsOptions.cursor,
+        pageNo,
       })
       .send()
       .catch(() => {
@@ -69,49 +72,76 @@ export const useContactStore = defineStore('contact', () => {
     isFresh
       ? requestFriendsList.splice(0, requestFriendsList.length, ...data.list)
       : requestFriendsList.push(...data.list)
-    requestFriendsOptions.cursor = data.cursor
     requestFriendsOptions.isLast = data.isLast
+    requestFriendsOptions.pageNo = data.isLast ? pageNo : pageNo + 1
     requestFriendsOptions.isLoading = false
+  }
+
+  const getSentFriendsList = async (isFresh = false) => {
+    if (!isFresh) {
+      if (sentFriendsOptions.isLast || sentFriendsOptions.isLoading) return
+    }
+    sentFriendsOptions.isLoading = true
+    const pageNo = isFresh ? 1 : sentFriendsOptions.pageNo
+    const data = await apis
+      .sentFriendList({
+        pageSize,
+        pageNo,
+      })
+      .send()
+      .catch(() => {
+        sentFriendsOptions.isLoading = false
+      })
+    if (!data) return
+    isFresh
+      ? sentFriendsList.splice(0, sentFriendsList.length, ...data.list)
+      : sentFriendsList.push(...data.list)
+    sentFriendsOptions.isLast = data.isLast
+    sentFriendsOptions.pageNo = data.isLast ? pageNo : pageNo + 1
+    sentFriendsOptions.isLoading = false
   }
   // 默认执行一次
   // getContactList()
   // getRequestFriendsList()
   /** 接受好友请求 */
-  const onAcceptFriend = (applyId: number) => {
-    // 同意好友申请
-    apis
-      .applyFriendRequest({ applyId })
-      .send()
-      .then(() => {
-        // 刷新好友申请列表
-        getRequestFriendsList(true)
-        // 刷新好友列表
-        getContactList(true)
-        // 标识为可以发消息的人
-        if (globalStore.currentSelectedContact) {
-          // @ts-ignore
-          globalStore.currentSelectedContact.status = RequestFriendAgreeStatus.Agree
-        }
-      })
+  const onAcceptFriend = async (applyId: number) => {
+    await apis.applyFriendRequest({ applyId }).send()
+    // 刷新好友申请列表
+    await getRequestFriendsList(true)
+    // 刷新好友列表
+    await getContactList(true)
+    // 标识为可以发消息的人
+    if (globalStore.currentSelectedContact) {
+      // @ts-ignore
+      globalStore.currentSelectedContact.status = RequestFriendAgreeStatus.Agree
+    }
+  }
+
+  const onRejectFriend = async (applyId: number) => {
+    await apis.rejectFriendRequest({ applyId }).send()
+    await getRequestFriendsList(true)
   }
   /** 删除好友 */
   const onDeleteContact = async (uid: number) => {
     if (!uid) return
-    // 同意好友申请
     await apis.deleteFriend({ targetUid: uid }).send()
     // 刷新好友申请列表
     // getRequestFriendsList(true)
     // 刷新好友列表
-    getContactList(true)
+    await getContactList(true)
   }
   return {
     getContactList,
     getRequestFriendsList,
     contactsList,
     requestFriendsList,
+    sentFriendsList,
     contactsOptions,
     requestFriendsOptions,
+    sentFriendsOptions,
     onAcceptFriend,
+    onRejectFriend,
     onDeleteContact,
+    getSentFriendsList,
   }
 })

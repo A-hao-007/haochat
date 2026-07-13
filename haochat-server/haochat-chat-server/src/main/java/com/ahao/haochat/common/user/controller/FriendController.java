@@ -70,6 +70,13 @@ public class FriendController {
         return ApiResult.success(friendService.pageApplyFriend(uid, request));
     }
 
+    @GetMapping("/apply/sent/page")
+    @ApiOperation("发出的好友申请列表")
+    public ApiResult<PageBaseResp<FriendApplyResp>> sentPage(@Valid PageBaseReq request) {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(friendService.pageSentApplyFriend(uid, request));
+    }
+
     @GetMapping("/apply/unread")
     @ApiOperation("申请未读数")
     public ApiResult<FriendUnreadResp> unread() {
@@ -81,6 +88,13 @@ public class FriendController {
     @ApiOperation("审批同意")
     public ApiResult<Void> applyApprove(@Valid @RequestBody FriendApproveReq request) {
         friendService.applyApprove(RequestHolder.get().getUid(), request);
+        return ApiResult.success();
+    }
+
+    @PutMapping("/apply/reject")
+    @ApiOperation("审批拒绝")
+    public ApiResult<Void> applyReject(@Valid @RequestBody FriendApproveReq request) {
+        friendService.applyReject(RequestHolder.get().getUid(), request);
         return ApiResult.success();
     }
 
@@ -98,4 +112,3 @@ public class FriendController {
         return ApiResult.success();
     }
 }
-

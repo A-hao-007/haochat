@@ -29,6 +29,7 @@ export const useUserStore = defineStore('user', () => {
       })
       .catch(() => {
         localStorage.removeItem('TOKEN')
+        localStorage.removeItem('REFRESH_TOKEN')
         localStorage.removeItem('USER_INFO')
         isSign.value = false
       })

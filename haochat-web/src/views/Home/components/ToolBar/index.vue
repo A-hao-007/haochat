@@ -45,9 +45,11 @@ const openAIChat = async () => {
 const handleLogout = async () => {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', { confirmButtonText: '退出', cancelButtonText: '取消', type: 'warning' })
+    await apis.logout(localStorage.getItem('REFRESH_TOKEN') || undefined).send().catch(() => undefined)
     userStore.isSign = false
     userStore.userInfo = {}
     localStorage.removeItem('TOKEN')
+    localStorage.removeItem('REFRESH_TOKEN')
     localStorage.removeItem('USER_INFO')
     // 整页刷新回登录页：SPA 内部跳转不会清掉内存里的消息/会话/当前房间等状态，
     // 下一个账号在同一浏览器登录时会看到上一个账号的聊天内容（已实际发生过）

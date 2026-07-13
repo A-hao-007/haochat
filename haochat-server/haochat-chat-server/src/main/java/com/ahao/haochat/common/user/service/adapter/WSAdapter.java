@@ -10,6 +10,7 @@ import com.ahao.haochat.common.user.domain.entity.User;
 import com.ahao.haochat.common.user.domain.enums.ChatActiveStatusEnum;
 import com.ahao.haochat.common.user.domain.enums.WSBaseResp;
 import com.ahao.haochat.common.user.domain.enums.WSRespTypeEnum;
+import com.ahao.haochat.common.user.domain.vo.response.auth.AuthTokenResp;
 import com.ahao.haochat.common.user.domain.vo.response.ws.*;
 import me.chanjar.weixin.mp.bean.result.WxMpQrCodeTicket;
 import org.springframework.beans.BeanUtils;
@@ -36,12 +37,22 @@ public class WSAdapter {
     }
 
     public static WSBaseResp<WSLoginSuccess> buildLoginSuccessResp(User user, String token, boolean hasPower) {
+        AuthTokenResp tokenResp = AuthTokenResp.builder()
+                .accessToken(token)
+                .token(token)
+                .build();
+        return buildLoginSuccessResp(user, tokenResp, hasPower);
+    }
+
+    public static WSBaseResp<WSLoginSuccess> buildLoginSuccessResp(User user, AuthTokenResp tokenResp, boolean hasPower) {
         WSBaseResp<WSLoginSuccess> wsBaseResp = new WSBaseResp<>();
         wsBaseResp.setType(WSRespTypeEnum.LOGIN_SUCCESS.getType());
         WSLoginSuccess wsLoginSuccess = WSLoginSuccess.builder()
                 .avatar(user.getAvatar())
                 .name(user.getName())
-                .token(token)
+                .accessToken(tokenResp.getAccessToken())
+                .refreshToken(tokenResp.getRefreshToken())
+                .token(tokenResp.getAccessToken())
                 .uid(user.getId())
                 .power(hasPower ? 1 : 0)
                 .build();
@@ -116,6 +127,13 @@ public class WSAdapter {
     public static WSBaseResp<ChatMessageResp> buildMsgSend(ChatMessageResp msgResp) {
         WSBaseResp<ChatMessageResp> wsBaseResp = new WSBaseResp<>();
         wsBaseResp.setType(WSRespTypeEnum.MESSAGE.getType());
+        wsBaseResp.setData(msgResp);
+        return wsBaseResp;
+    }
+
+    public static WSBaseResp<ChatMessageResp> buildMsgEdit(ChatMessageResp msgResp) {
+        WSBaseResp<ChatMessageResp> wsBaseResp = new WSBaseResp<>();
+        wsBaseResp.setType(WSRespTypeEnum.MESSAGE_EDIT.getType());
         wsBaseResp.setData(msgResp);
         return wsBaseResp;
     }

@@ -30,7 +30,9 @@ const registerCodeCountdown = ref(0)
 
 // 登录成功后统一处理登录态 + 记录最近账号
 const applyLoginSuccess = (res: any) => {
-  localStorage.setItem('TOKEN', res.token)
+  const accessToken = res.accessToken || res.token
+  localStorage.setItem('TOKEN', accessToken)
+  res.refreshToken && localStorage.setItem('REFRESH_TOKEN', res.refreshToken)
   localStorage.setItem('USER_INFO', JSON.stringify({ uid: res.uid, name: res.name, avatar: res.avatar }))
   localStorage.setItem('REMEMBER_LOGIN', remember.value ? '1' : '0')
   if (remember.value) {
@@ -39,7 +41,7 @@ const applyLoginSuccess = (res: any) => {
     localStorage.removeItem('REMEMBER_USERNAME')
   }
   upsertAccount(
-    { uid: res.uid, name: res.name, avatar: res.avatar, username: res.username, token: res.token, lastLogin: Date.now() },
+    { uid: res.uid, name: res.name, avatar: res.avatar, username: res.username, token: accessToken, lastLogin: Date.now() },
     remember.value,
   )
   computedToken.clear(); computedToken.get()
@@ -220,7 +222,7 @@ const handleRegister = async () => {
   if (!registerForm.username.trim()) { ElMessage.warning('请输入用户名'); return }
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(registerForm.username.trim())) { ElMessage.warning('用户名3-20位字母/数字/下划线'); return }
   if (!registerForm.name.trim()) { ElMessage.warning('请输入昵称'); return }
-  if (!registerForm.password || registerForm.password.length < 6) { ElMessage.warning('密码至少6位'); return }
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(registerForm.password)) { ElMessage.warning('密码至少8位，且包含大小写字母和数字'); return }
   if (registerForm.password !== registerForm.confirmPassword) { ElMessage.warning('两次密码不一致'); return }
   if (!/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(registerForm.email.trim())) { ElMessage.warning('请输入正确的邮箱地址'); return }
   if (!registerForm.emailCode.trim()) { ElMessage.warning('请输入邮箱验证码'); return }

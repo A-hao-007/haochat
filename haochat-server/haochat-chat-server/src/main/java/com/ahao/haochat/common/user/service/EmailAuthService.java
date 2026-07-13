@@ -5,6 +5,7 @@ import com.ahao.haochat.common.common.exception.BusinessException;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.ahao.haochat.common.user.dao.UserDao;
+import com.ahao.haochat.common.user.dao.UserSessionDao;
 import com.ahao.haochat.common.user.domain.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -16,13 +17,9 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-/**
- * 邮箱相关：绑定邮箱、邮箱登录、邮箱找回密码。验证码存 Redis（10 分钟）。
- */
 @Slf4j
 @Service
 public class EmailAuthService {
-
     private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
     private static final Pattern EMAIL = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
     private static final Pattern STRONG_PWD = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$");
@@ -32,90 +29,100 @@ public class EmailAuthService {
     private UserDao userDao;
     @Autowired
     private MailService mailService;
+    @Autowired
+    private AuthSecurityService authSecurityService;
+    @Autowired
+    private UserSessionDao userSessionDao;
 
-    /** 注册：发送邮箱验证码（此时账号尚未创建，按邮箱维度限流/存储） */
     public void sendRegisterCode(String email) {
         checkEmailFormat(email);
         AssertUtil.isTrue(userDao.getByEmail(email) == null, "该邮箱已被注册");
-        sendCode(registerKey(email), email);
+        sendCode(codeKey("register", email), email);
     }
 
-    /** 注册：校验邮箱验证码（成功后由调用方负责创建账号，此处不删除验证码，避免创建失败后无法重试） */
     public void verifyRegisterCode(String email, String code) {
-        verifyCode(registerKey(email), code);
+        verifyCode(codeKey("register", email), code);
     }
 
-    /** 注册成功后清理验证码 */
     public void clearRegisterCode(String email) {
-        RedisUtils.del(registerKey(email));
+        RedisUtils.del(codeKey("register", email));
     }
 
-    /** 绑定邮箱：发送验证码 */
     public void sendBindCode(Long uid, String email) {
         checkEmailFormat(email);
         User exist = userDao.getByEmail(email);
         AssertUtil.isTrue(exist == null || Objects.equals(exist.getId(), uid), "该邮箱已被其他账号绑定");
-        sendCode(bindKey(uid, email), email);
+        sendCode(codeKey("bind:" + uid, email), email);
     }
 
-    /** 绑定邮箱：校验验证码后写入 */
     public void bindEmail(Long uid, String email, String code) {
         checkEmailFormat(email);
-        verifyCode(bindKey(uid, email), code);
+        verifyCode(codeKey("bind:" + uid, email), code);
         User exist = userDao.getByEmail(email);
         AssertUtil.isTrue(exist == null || Objects.equals(exist.getId(), uid), "该邮箱已被其他账号绑定");
         userDao.modifyEmail(uid, email);
-        RedisUtils.del(bindKey(uid, email));
+        RedisUtils.del(codeKey("bind:" + uid, email));
     }
 
-    /** 邮箱登录：邮箱 + 密码 */
     public User loginByEmail(String email, String password) {
+        authSecurityService.checkLoginAllowed(email);
         User user = userDao.getByEmail(email);
         if (user == null || !ENCODER.matches(password, user.getPassword())) {
+            authSecurityService.onLoginFailure(user == null ? null : user.getId(), email, "EMAIL_PASSWORD", "bad_credentials");
             throw new BusinessException("邮箱或密码错误");
         }
-        AssertUtil.isFalse(user.getStatus() != null && user.getStatus() == 1, "账号已被禁用");
+        if (user.getStatus() != null && user.getStatus() == 1) {
+            authSecurityService.onLoginFailure(user.getId(), email, "EMAIL_PASSWORD", "disabled");
+            throw new BusinessException("账号已被禁用");
+        }
+        authSecurityService.onLoginSuccess(user.getId(), email, "EMAIL_PASSWORD");
         return user;
     }
 
-    /** 验证码登录：发送验证码到已注册邮箱 */
     public void sendLoginCode(String email) {
         checkEmailFormat(email);
         User user = userDao.getByEmail(email);
         AssertUtil.isNotEmpty(user, "该邮箱未绑定任何账号");
         AssertUtil.isFalse(user.getStatus() != null && user.getStatus() == 1, "账号已被禁用");
-        sendCode(loginKey(email), email);
+        sendCode(codeKey("login", email), email);
     }
 
-    /** 验证码登录：校验验证码后返回用户（验证通过即消费掉验证码，防止重放） */
     public User loginByEmailCode(String email, String code) {
         checkEmailFormat(email);
-        verifyCode(loginKey(email), code);
+        verifyCode(codeKey("login", email), code);
         User user = userDao.getByEmail(email);
         AssertUtil.isNotEmpty(user, "该邮箱未绑定任何账号");
         AssertUtil.isFalse(user.getStatus() != null && user.getStatus() == 1, "账号已被禁用");
-        RedisUtils.del(loginKey(email));
+        RedisUtils.del(codeKey("login", email));
+        authSecurityService.onLoginSuccess(user.getId(), email, "EMAIL_CODE");
         return user;
     }
 
-    /** 找回密码：发送验证码到已绑定邮箱 */
+    /**
+     * Forgot-password code sending must not reveal whether the email exists.
+     */
     public void sendForgotCode(String email) {
         checkEmailFormat(email);
         User user = userDao.getByEmail(email);
-        AssertUtil.isNotEmpty(user, "该邮箱未绑定任何账号");
-        sendCode(forgotKey(email), email);
+        if (user == null || (user.getStatus() != null && user.getStatus() == 1)) {
+            log.info("ignore forgot password code for non-existing/disabled email={}", email);
+            return;
+        }
+        sendCode(codeKey("forgot", email), email);
     }
 
-    /** 找回密码：校验验证码 + 强度后重置 */
     public void resetByCode(String email, String code, String newPassword) {
         AssertUtil.isTrue(newPassword != null && STRONG_PWD.matcher(newPassword).matches(),
                 "新密码至少 8 位，且需同时包含大小写字母和数字");
-        verifyCode(forgotKey(email), code);
+        verifyCode(codeKey("forgot", email), code);
         User user = userDao.getByEmail(email);
-        AssertUtil.isNotEmpty(user, "该邮箱未绑定任何账号");
+        if (user == null || (user.getStatus() != null && user.getStatus() == 1)) {
+            throw new BusinessException("验证码错误或已过期");
+        }
         userDao.modifyPassword(user.getId(), ENCODER.encode(newPassword));
-        RedisUtils.del(forgotKey(email));
-        log.info("邮箱找回密码成功: email={}, uid={}", email, user.getId());
+        userSessionDao.revokeByUid(user.getId());
+        RedisUtils.del(codeKey("forgot", email));
+        log.info("forgot password reset success: email={}, uid={}", email, user.getId());
     }
 
     private void sendCode(String key, String email) {
@@ -127,27 +134,15 @@ public class EmailAuthService {
     private void verifyCode(String key, String code) {
         AssertUtil.isFalse(StringUtils.isBlank(code), "请输入验证码");
         String real = RedisUtils.getStr(key);
-        AssertUtil.isNotEmpty(real, "验证码已过期，请重新获取");
-        AssertUtil.equal(real, code.trim(), "验证码错误");
+        AssertUtil.isNotEmpty(real, "验证码错误或已过期");
+        AssertUtil.equal(real, code.trim(), "验证码错误或已过期");
     }
 
     private void checkEmailFormat(String email) {
         AssertUtil.isTrue(email != null && EMAIL.matcher(email).matches(), "邮箱格式有误");
     }
 
-    private String bindKey(Long uid, String email) {
-        return "email:bind:" + uid + ":" + email;
-    }
-
-    private String forgotKey(String email) {
-        return "email:forgot:" + email;
-    }
-
-    private String loginKey(String email) {
-        return "email:login:" + email;
-    }
-
-    private String registerKey(String email) {
-        return "email:register:" + email;
+    private String codeKey(String scene, String email) {
+        return "email:code:" + scene + ":" + email;
     }
 }

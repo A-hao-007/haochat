@@ -1,7 +1,7 @@
 // 创建一个 eventHub.js 文件
 import mitt from 'mitt'
 import type { Emitter } from 'mitt'
-import type { MsgReadUnReadCountType } from '@/services/types'
+import type { MessageType, MsgReadUnReadCountType } from '@/services/types'
 
 type Events = {
   focusMsgInput?: void
@@ -9,6 +9,7 @@ type Events = {
   onAddReadCountTask: { msgId: number }
   onRemoveReadCountTask: { msgId: number }
   onGetReadCount: Map<number, MsgReadUnReadCountType>
+  onEditMsg: MessageType
 }
 
 const eventHub: Emitter<Events> = mitt<Events>()

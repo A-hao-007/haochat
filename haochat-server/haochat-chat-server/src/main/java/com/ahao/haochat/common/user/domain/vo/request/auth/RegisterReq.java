@@ -23,6 +23,7 @@ public class RegisterReq {
 
     @NotBlank(message = "密码不能为空")
     @Length(min = 6, max = 50, message = "密码长度6-50个字符")
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$", message = "密码至少 8 位，且需同时包含大小写字母和数字")
     private String password;
 
     @NotBlank(message = "邮箱不能为空")

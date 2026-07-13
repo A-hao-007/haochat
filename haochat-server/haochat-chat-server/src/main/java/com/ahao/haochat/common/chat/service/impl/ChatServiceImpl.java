@@ -8,6 +8,7 @@ import cn.hutool.core.lang.Pair;
 import com.ahao.haochat.common.chat.dao.*;
 import com.ahao.haochat.common.chat.domain.dto.MsgReadInfoDTO;
 import com.ahao.haochat.common.chat.domain.entity.*;
+import com.ahao.haochat.common.chat.domain.entity.msg.MessageExtra;
 import com.ahao.haochat.common.chat.domain.enums.MessageMarkActTypeEnum;
 import com.ahao.haochat.common.chat.domain.enums.MessageTypeEnum;
 import com.ahao.haochat.common.chat.domain.vo.request.*;
@@ -30,11 +31,14 @@ import com.ahao.haochat.common.chat.service.strategy.msg.AbstractMsgHandler;
 import com.ahao.haochat.common.chat.service.strategy.msg.MsgHandlerFactory;
 import com.ahao.haochat.common.chat.service.strategy.msg.RecallMsgHandler;
 import com.ahao.haochat.common.common.annotation.RedissonLock;
+import com.ahao.haochat.common.common.algorithm.sensitiveWord.SensitiveWordBs;
 import com.ahao.haochat.common.common.domain.enums.NormalOrNoEnum;
 import com.ahao.haochat.common.common.domain.vo.request.CursorPageBaseReq;
 import com.ahao.haochat.common.common.domain.vo.response.CursorPageBaseResp;
+import com.ahao.haochat.common.common.event.MessageEditEvent;
 import com.ahao.haochat.common.common.event.MessageSendEvent;
 import com.ahao.haochat.common.common.utils.AssertUtil;
+import com.ahao.haochat.common.common.utils.discover.PrioritizedUrlDiscover;
 import com.ahao.haochat.common.user.dao.UserDao;
 import com.ahao.haochat.common.user.domain.entity.User;
 import com.ahao.haochat.common.user.domain.enums.ChatActiveStatusEnum;
@@ -63,6 +67,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ChatServiceImpl implements ChatService {
     public static final long ROOM_GROUP_ID = 1L;
+    private static final PrioritizedUrlDiscover URL_TITLE_DISCOVER = new PrioritizedUrlDiscover();
     @Autowired
     private MessageDao messageDao;
     @Autowired
@@ -95,6 +100,8 @@ public class ChatServiceImpl implements ChatService {
     private RoomGroupCache roomGroupCache;
     @Autowired
     private RoomGroupDao roomGroupDao;
+    @Autowired
+    private SensitiveWordBs sensitiveWordBs;
 
     /**
      * 发送消息
@@ -268,17 +275,24 @@ public class ChatServiceImpl implements ChatService {
 
     // [AUDIT-ADD] B-消息编辑：仅发送者可编辑自己的文本消息，并更新 updateTime
     @Override
+    @Transactional
     public void editMsg(Long uid, ChatMessageEditReq request) {
         Message message = messageDao.getById(request.getMsgId());
         AssertUtil.isNotEmpty(message, "消息有误");
+        AssertUtil.equal(request.getRoomId(), message.getRoomId(), "房间号有误");
+        checkReadPermission(message.getRoomId(), uid);
         AssertUtil.equal(message.getType(), MessageTypeEnum.TEXT.getType(), "仅文本消息支持编辑");
         AssertUtil.isTrue(Objects.equals(uid, message.getFromUid()), "抱歉,您没有权限");
         AssertUtil.isFalse(request.getContent() == null || request.getContent().trim().isEmpty(), "编辑内容不能为空");
+        MessageExtra extra = Optional.ofNullable(message.getExtra()).orElse(new MessageExtra());
+        extra.setUrlContentMap(URL_TITLE_DISCOVER.getUrlContentMap(request.getContent()));
         Message update = new Message();
         update.setId(message.getId());
-        update.setContent(request.getContent());
+        update.setContent(sensitiveWordBs.filter(request.getContent()));
+        update.setExtra(extra);
         update.setUpdateTime(new Date());
         messageDao.updateById(update);
+        applicationEventPublisher.publishEvent(new MessageEditEvent(this, message.getId()));
     }
 
     @Override

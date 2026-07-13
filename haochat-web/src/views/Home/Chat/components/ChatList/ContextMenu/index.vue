@@ -16,6 +16,7 @@ import { MsgEnum, PowerEnum } from '@/enums'
 import { useEmojiStore } from '@/stores/emoji'
 import { useEmojiUpload } from '@/hooks/useEmojiUpload'
 import { urlToFile } from '@/utils'
+import eventBus from '@/utils/eventBus'
 
 const props = defineProps<{
   // 消息体
@@ -31,6 +32,9 @@ const chatStore = useChatStore()
 // FIXME 未登录到登录这些监听没有变化。需处理
 const isCurrentUser = computed(() => props.msg?.fromUser.uid === userInfo.uid)
 const isAdmin = computed(() => userInfo?.power === PowerEnum.ADMIN)
+const canEdit = computed(
+  () => isCurrentUser.value && props.msg?.message.type === MsgEnum.TEXT && !props.msg.loading,
+)
 // 撤回
 const onRecall = async () => {
   const { id, roomId } = props.msg.message
@@ -101,6 +105,8 @@ const onAddEmoji = () => {
 }
 
 const onDelete = () => chatStore.deleteMsg(props.msg.message.id)
+
+const onEdit = () => eventBus.emit('onEditMsg', props.msg)
 </script>
 
 <template>
@@ -141,6 +147,11 @@ const onDelete = () => chatStore.deleteMsg(props.msg.message.id)
     >
       <template #icon>
         <Icon icon="chehui" :size="14" />
+      </template>
+    </ContextMenuItem>
+    <ContextMenuItem v-if="canEdit" label="编辑消息" @click="onEdit">
+      <template #icon>
+        <IEpEdit :size="13" />
       </template>
     </ContextMenuItem>
     <ContextMenuItem

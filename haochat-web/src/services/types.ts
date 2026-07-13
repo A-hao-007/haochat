@@ -376,6 +376,8 @@ export enum RequestFriendAgreeStatus {
   Waiting = 1,
   /** 2同意 */
   Agree,
+  /** 3拒绝 */
+  Reject,
 }
 
 /** 请求添加好友的列表项 */

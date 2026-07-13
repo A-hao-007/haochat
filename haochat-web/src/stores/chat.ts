@@ -480,6 +480,18 @@ export const useChatStore = defineStore('chat', () => {
   const deleteMsg = (msgId: number) => {
     currentMessageMap.value?.delete(msgId)
   }
+  // 更新已编辑消息，不触发新消息未读和通知逻辑
+  const updateEditedMsg = (msg: MessageType) => {
+    const roomMessages = messageMap.get(msg.message.roomId)
+    if (roomMessages?.has(msg.message.id)) {
+      roomMessages.set(msg.message.id, msg)
+      messageMap.set(msg.message.roomId, roomMessages)
+    }
+    const session = sessionList.find((item) => item.roomId === msg.message.roomId)
+    if (session) {
+      session.text = `${msg.fromUser.username || msg.fromUser.uid}:${msg.message.body?.content || ''}`
+    }
+  }
   // 更新消息
   const updateMsg = (msgId: number, newMessage: MessageType) => {
     deleteMsg(msgId)
@@ -569,6 +581,7 @@ export const useChatStore = defineStore('chat', () => {
     clearNewMsgCount,
     updateMarkCount,
     updateRecallStatus,
+    updateEditedMsg,
     updateMsg,
     handleAgentStreamChunk,
     chatListToBottomAction,

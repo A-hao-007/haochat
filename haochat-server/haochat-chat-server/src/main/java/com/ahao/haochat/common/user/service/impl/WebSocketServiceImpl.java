@@ -14,6 +14,8 @@ import com.ahao.haochat.common.user.domain.entity.User;
 import com.ahao.haochat.common.user.domain.enums.RoleEnum;
 import com.ahao.haochat.common.user.domain.enums.WSBaseResp;
 import com.ahao.haochat.common.user.domain.vo.request.ws.WSAuthorize;
+import com.ahao.haochat.common.user.domain.vo.response.auth.AuthTokenResp;
+import com.ahao.haochat.common.user.service.AuthSecurityService;
 import com.ahao.haochat.common.user.service.IRoleService;
 import com.ahao.haochat.common.user.service.LoginService;
 import com.ahao.haochat.common.user.service.WebSocketService;
@@ -82,6 +84,8 @@ public class WebSocketServiceImpl implements WebSocketService {
     private WxMpService wxMpService;
     @Autowired
     private LoginService loginService;
+    @Autowired
+    private AuthSecurityService authSecurityService;
     @Autowired
     private UserDao userDao;
     @Autowired
@@ -169,12 +173,16 @@ public class WebSocketServiceImpl implements WebSocketService {
      * (channel必在本地)登录成功，并更新状态
      */
     private void loginSuccess(Channel channel, User user, String token) {
+        loginSuccess(channel, user, AuthTokenResp.builder().accessToken(token).token(token).build());
+    }
+
+    private void loginSuccess(Channel channel, User user, AuthTokenResp tokenResp) {
         //更新上线列表
         online(channel, user.getId());
         //返回给用户登录成功
         boolean hasPower = iRoleService.hasPower(user.getId(), RoleEnum.CHAT_MANAGER);
         //发送给对应的用户
-        sendMsg(channel, WSAdapter.buildLoginSuccessResp(user, token, hasPower));
+        sendMsg(channel, WSAdapter.buildLoginSuccessResp(user, tokenResp, hasPower));
         //发送用户上线事件
         boolean online = userCache.isOnline(user.getId());
         if (!online) {
@@ -221,9 +229,11 @@ public class WebSocketServiceImpl implements WebSocketService {
         //移除code
         WAIT_LOGIN_MAP.invalidate(loginCode);
         //调用用户登录模块
-        String token = loginService.login(uid);
+        String ip = NettyUtil.getAttr(channel, NettyUtil.IP);
+        AuthTokenResp tokenResp = loginService.loginWithTokens(uid, ip, null);
+        authSecurityService.recordLogin(uid, user == null ? String.valueOf(uid) : user.getOpenId(), "WX_QR", true, null, ip, null);
         //用户登录
-        loginSuccess(channel, user, token);
+        loginSuccess(channel, user, tokenResp);
         return Boolean.TRUE;
     }
 

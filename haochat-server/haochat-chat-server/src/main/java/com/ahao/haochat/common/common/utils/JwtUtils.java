@@ -14,44 +14,55 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Description: jwt的token生成与解析
- * Author: <a href="https://github.com/A-hao-007">abin</a>
- * Date: 2023-04-03
- */
 @Slf4j
 @Component
 public class JwtUtils {
 
-    /**
-     * token秘钥，请勿泄露，请勿随便修改
-     */
     @Value("${haochat.jwt.secret}")
     private String secret;
 
     private static final String UID_CLAIM = "uid";
     private static final String CREATE_TIME = "createTime";
+    private static final String SESSION_ID = "sid";
+    private static final String TOKEN_TYPE = "typ";
+    private static final String JWT_ID = "jti";
+    public static final String TYPE_ACCESS = "access";
+    public static final String TYPE_REFRESH = "refresh";
 
     /**
-     * JWT生成Token.<br/>
-     * <p>
-     * JWT构成: header, payload, signature
+     * Legacy token creation. New code should use createAccessToken.
      */
     public String createToken(Long uid) {
-        // build token
-        String token = JWT.create()
-                .withClaim(UID_CLAIM, uid) // 只存一个uid信息，其他的自己去redis查
-                .withClaim(CREATE_TIME, new Date())
-                .sign(Algorithm.HMAC256(secret)); // signature
-        return token;
+        return createAccessToken(uid, null, 5 * 24 * 60L);
     }
 
-    /**
-     * 解密Token
-     *
-     * @param token
-     * @return
-     */
+    public String createAccessToken(Long uid, Long sessionId, long expireMinutes) {
+        Date now = new Date();
+        Date expireAt = new Date(now.getTime() + expireMinutes * 60_000L);
+        com.auth0.jwt.JWTCreator.Builder builder = JWT.create()
+                .withClaim(UID_CLAIM, uid)
+                .withClaim(TOKEN_TYPE, TYPE_ACCESS)
+                .withClaim(CREATE_TIME, now)
+                .withExpiresAt(expireAt);
+        if (sessionId != null) {
+            builder.withClaim(SESSION_ID, sessionId);
+        }
+        return builder.sign(Algorithm.HMAC256(secret));
+    }
+
+    public String createRefreshToken(Long uid, Long sessionId, String jwtId, long expireDays) {
+        Date now = new Date();
+        Date expireAt = new Date(now.getTime() + expireDays * 24 * 60 * 60_000L);
+        return JWT.create()
+                .withClaim(UID_CLAIM, uid)
+                .withClaim(SESSION_ID, sessionId)
+                .withClaim(TOKEN_TYPE, TYPE_REFRESH)
+                .withClaim(JWT_ID, jwtId)
+                .withClaim(CREATE_TIME, now)
+                .withExpiresAt(expireAt)
+                .sign(Algorithm.HMAC256(secret));
+    }
+
     public Map<String, Claim> verifyToken(String token) {
         if (StringUtils.isEmpty(token)) {
             return null;
@@ -66,13 +77,6 @@ public class JwtUtils {
         return null;
     }
 
-
-    /**
-     * 根据Token获取uid
-     *
-     * @param token
-     * @return uid
-     */
     public Long getUidOrNull(String token) {
         return Optional.ofNullable(verifyToken(token))
                 .map(map -> map.get(UID_CLAIM))
@@ -80,4 +84,24 @@ public class JwtUtils {
                 .orElse(null);
     }
 
+    public Long getSessionIdOrNull(String token) {
+        return Optional.ofNullable(verifyToken(token))
+                .map(map -> map.get(SESSION_ID))
+                .map(Claim::asLong)
+                .orElse(null);
+    }
+
+    public String getTokenTypeOrNull(String token) {
+        return Optional.ofNullable(verifyToken(token))
+                .map(map -> map.get(TOKEN_TYPE))
+                .map(Claim::asString)
+                .orElse(null);
+    }
+
+    public String getJwtIdOrNull(String token) {
+        return Optional.ofNullable(verifyToken(token))
+                .map(map -> map.get(JWT_ID))
+                .map(Claim::asString)
+                .orElse(null);
+    }
 }

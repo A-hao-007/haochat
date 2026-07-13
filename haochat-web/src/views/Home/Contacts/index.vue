@@ -21,7 +21,7 @@ const cachedStore = useCachedStore()
 const chatStore = useChatStore()
 const groupStore = useGroupStore()
 
-const activeTab = ref<'contacts' | 'requests' | 'groups'>(
+const activeTab = ref<'contacts' | 'requests' | 'sent' | 'groups'>(
   route.meta.tab === 'groups' ? 'groups' : 'contacts'
 )
 watch(
@@ -36,6 +36,7 @@ const addingUids = ref(new Set<number>())
 // 联系人列表
 const contactsList = computed(() => contactStore.contactsList || [])
 const requestsList = computed(() => contactStore.requestFriendsList || [])
+const sentRequestsList = computed(() => contactStore.sentFriendsList || [])
 
 const newRequestCount = computed(() =>
   requestsList.value.filter((r: RequestFriendItem) => r.status === RequestFriendAgreeStatus.Waiting).length
@@ -44,8 +45,13 @@ const newRequestCount = computed(() =>
 onBeforeMount(async () => {
   await contactStore.getContactList(true)
   await contactStore.getRequestFriendsList(true)
+  await contactStore.getSentFriendsList(true)
   // 批量预加载联系人用户信息
-  const uids = contactStore.contactsList.map((c: { uid: number }) => c.uid)
+  const uids = [
+    ...contactStore.contactsList.map((c: { uid: number }) => c.uid),
+    ...contactStore.requestFriendsList.map((r: { uid: number }) => r.uid),
+    ...contactStore.sentFriendsList.map((r: { uid: number }) => r.uid),
+  ]
   if (uids.length) cachedStore.getBatchUserInfo(uids)
   await groupStore.getMyGroupList()
 })
@@ -103,6 +109,7 @@ const addFriend = async (uid: number) => {
   try {
     await apis.sendAddFriendRequest({ targetUid: uid, msg: '你好，我想加你为好友' }).send()
     ElMessage.success('好友请求已发送')
+    await contactStore.getSentFriendsList(true)
     searchResults.value = searchResults.value.filter(u => u.uid !== uid)
   } catch (err: any) {
     ElMessage.error(err?.message || '发送失败')
@@ -114,9 +121,18 @@ const addFriend = async (uid: number) => {
 /** 接受好友请求 */
 const acceptRequest = async (applyId: number) => {
   try {
-    await apis.applyFriendRequest({ applyId }).send()
+    await contactStore.onAcceptFriend(applyId)
     ElMessage.success('已添加好友')
-    contactStore.onAcceptFriend(applyId)
+  } catch (err: any) {
+    ElMessage.error(err?.message || '操作失败')
+  }
+}
+
+/** 拒绝好友请求 */
+const rejectRequest = async (applyId: number) => {
+  try {
+    await contactStore.onRejectFriend(applyId)
+    ElMessage.success('已拒绝')
   } catch (err: any) {
     ElMessage.error(err?.message || '操作失败')
   }
@@ -158,11 +174,16 @@ const createGroup = async () => {
     await groupStore.getMyGroupList()
   } catch (err: any) { ElMessage.error(err?.message || '创建失败') }
 }
+
+const requestStatusText = (status: RequestFriendAgreeStatus) => {
+  if (status === RequestFriendAgreeStatus.Agree) return '已添加'
+  if (status === RequestFriendAgreeStatus.Reject) return '已拒绝'
+  return '待验证'
+}
 const deleteFriend = async (uid: number) => {
   try {
-    await apis.deleteFriend({ targetUid: uid }).send()
+    await contactStore.onDeleteContact(uid)
     ElMessage.success('已删除')
-    contactStore.onDeleteContact(uid)
   } catch (err: any) {
     ElMessage.error(err?.message || '删除失败')
   }
@@ -247,8 +268,14 @@ const deleteFriend = async (uid: number) => {
         :class="['tab', { active: activeTab === 'requests' }]"
         @click="activeTab = 'requests'"
       >
-        新的朋友
+        收到申请
         <span v-if="newRequestCount" class="badge">{{ newRequestCount }}</span>
+      </button>
+      <button
+        :class="['tab', { active: activeTab === 'sent' }]"
+        @click="activeTab = 'sent'"
+      >
+        发出申请
       </button>
       <button
         :class="['tab', { active: activeTab === 'groups' }]"
@@ -332,14 +359,30 @@ const deleteFriend = async (uid: number) => {
           <span class="request-msg">{{ req.msg || '请求添加你为好友' }}</span>
         </div>
         <div class="request-actions">
-          <button
-            v-if="req.status === RequestFriendAgreeStatus.Waiting"
-            class="accept-btn"
-            @click="acceptRequest(req.applyId)"
-          >
-            接受
-          </button>
-          <span v-else class="accepted-text">已添加</span>
+          <template v-if="req.status === RequestFriendAgreeStatus.Waiting">
+            <button class="accept-btn" @click="acceptRequest(req.applyId)">接受</button>
+            <button class="del-btn" @click="rejectRequest(req.applyId)">拒绝</button>
+          </template>
+          <span v-else class="accepted-text">{{ requestStatusText(req.status) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 发出的好友请求列表 -->
+    <div v-if="activeTab === 'sent'" class="list-section">
+      <div v-if="sentRequestsList.length === 0" class="empty">暂无发出的好友请求</div>
+      <div
+        v-for="req in sentRequestsList"
+        :key="req.applyId"
+        class="request-item"
+      >
+        <el-avatar :size="44" :src="cachedStore.userCachedList[req.uid]?.avatar" />
+        <div class="request-info">
+          <span class="request-name">{{ cachedStore.userCachedList[req.uid]?.name || '用户' + req.uid }}</span>
+          <span class="request-msg">{{ req.msg || '好友申请' }}</span>
+        </div>
+        <div class="request-actions">
+          <span class="accepted-text">{{ requestStatusText(req.status) }}</span>
         </div>
       </div>
     </div>

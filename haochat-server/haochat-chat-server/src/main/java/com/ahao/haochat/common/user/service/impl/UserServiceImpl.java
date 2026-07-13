@@ -9,6 +9,7 @@ import com.ahao.haochat.common.user.dao.BlackDao;
 import com.ahao.haochat.common.user.dao.ItemConfigDao;
 import com.ahao.haochat.common.user.dao.UserBackpackDao;
 import com.ahao.haochat.common.user.dao.UserDao;
+import com.ahao.haochat.common.user.dao.UserSessionDao;
 import com.ahao.haochat.common.user.domain.dto.ItemInfoDTO;
 import com.ahao.haochat.common.user.domain.dto.SummeryInfoDTO;
 import com.ahao.haochat.common.user.domain.entity.Black;
@@ -66,6 +67,8 @@ public class UserServiceImpl implements UserService {
     private UserSummaryCache userSummaryCache;
     @Autowired
     private SensitiveWordBs sensitiveWordBs;
+    @Autowired
+    private UserSessionDao userSessionDao;
 
     @Override
     public UserInfoResp getUserInfo(Long uid) {
@@ -83,6 +86,7 @@ public class UserServiceImpl implements UserService {
         AssertUtil.isTrue(PASSWORD_ENCODER.matches(req.getOldPassword(), user.getPassword()), "原密码错误");
         AssertUtil.isFalse(PASSWORD_ENCODER.matches(req.getNewPassword(), user.getPassword()), "新密码不能与原密码相同");
         userDao.modifyPassword(uid, PASSWORD_ENCODER.encode(req.getNewPassword()));
+        userSessionDao.revokeByUid(uid);
         log.info("用户修改密码成功: uid={}", uid);
     }
 

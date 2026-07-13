@@ -238,7 +238,9 @@ const handleLogout = async () => {
       cancelButtonText: '取消',
       type: 'warning',
     })
+    await apis.logout(localStorage.getItem('REFRESH_TOKEN') || undefined).send().catch(() => undefined)
     localStorage.removeItem('TOKEN')
+    localStorage.removeItem('REFRESH_TOKEN')
     localStorage.removeItem('USER_INFO')
     window.location.reload()
   } catch { /* cancelled */ }

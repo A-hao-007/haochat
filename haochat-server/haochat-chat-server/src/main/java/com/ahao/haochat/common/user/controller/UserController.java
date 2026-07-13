@@ -1,6 +1,7 @@
 package com.ahao.haochat.common.user.controller;
 
 
+import com.ahao.haochat.common.common.annotation.FrequencyControl;
 import com.ahao.haochat.common.common.domain.vo.response.ApiResult;
 import com.ahao.haochat.common.common.utils.AssertUtil;
 import com.ahao.haochat.common.common.utils.RequestHolder;
@@ -112,6 +113,7 @@ public class UserController {
     }
 
     @PostMapping("/email/code")
+    @FrequencyControl(time = 60, count = 3, target = FrequencyControl.Target.UID)
     @ApiOperation("发送绑定邮箱验证码")
     public ApiResult<Void> sendBindEmailCode(@Valid @RequestBody EmailCodeReq req) {
         emailAuthService.sendBindCode(RequestHolder.get().getUid(), req.getEmail());

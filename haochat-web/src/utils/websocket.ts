@@ -191,6 +191,7 @@ class WS {
         userStore.userInfo = { ...userStore.userInfo, ...rest }
         localStorage.setItem('USER_INFO', JSON.stringify(rest))
         localStorage.setItem('TOKEN', token)
+        ;(params.data as any).refreshToken && localStorage.setItem('REFRESH_TOKEN', (params.data as any).refreshToken)
         // 更新一下请求里面的 token.
         computedToken.clear()
         computedToken.get()
@@ -239,6 +240,11 @@ class WS {
         }
         break
       }
+      case WsResponseMessageType.MessageEdit: {
+        const msg = params.data as MessageType
+        chatStore.updateEditedMsg(msg)
+        break
+      }
       // 用户下线
       case WsResponseMessageType.OnOffLine: {
         const data = params.data as OnStatusChangeType
@@ -253,6 +259,7 @@ class WS {
         userStore.userInfo = {}
         localStorage.removeItem('USER_INFO')
         localStorage.removeItem('TOKEN')
+        localStorage.removeItem('REFRESH_TOKEN')
         loginStore.loginStatus = LoginStatus.Init
         // 跳转到登录页
         Router.push('/login')

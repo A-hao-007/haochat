@@ -1,5 +1,5 @@
 <script setup lang="ts" name="SendBar">
-import { computed, onBeforeUnmount, onMounted, provide, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref } from 'vue'
 import type { ElInput } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useWsLoginStore } from '@/stores/ws'
@@ -26,6 +26,7 @@ import { generateBody } from '@/utils'
 import renderReplyContent from '@/utils/renderReplyContent'
 import eventBus from '@/utils/eventBus'
 import throttle from 'lodash/throttle'
+import type { MessageType } from '@/services/types'
 
 const client = judgeClient()
 
@@ -43,6 +44,7 @@ const nowMsgType = ref<MsgEnum>(MsgEnum.FILE)
 const panelIndex = ref(0)
 const isUpEmoji = ref(false)
 const tempEmojiId = ref(-1)
+const editingMsg = ref<MessageType | null>(null)
 
 const focusMsgInput = () => {
   setTimeout(() => {
@@ -59,13 +61,39 @@ const onSelectPerson = ({ uid, ignoreCheck }: { uid: number; ignoreCheck?: boole
   isAudio.value = false
 }
 
+const setInputText = (content: string) => {
+  inputMsg.value = content
+  mentionList.value = []
+  nextTick(() => {
+    const input = mentionRef.value?.input
+    if (input) {
+      input.innerText = content
+    }
+    focusMsgInput()
+  })
+}
+
+const onEditMsg = (msg: MessageType) => {
+  if (msg.message.type !== MsgEnum.TEXT) return
+  editingMsg.value = msg
+  isAudio.value = false
+  onClearReply()
+  setInputText(msg.message.body?.content || '')
+}
+
+const clearEditing = () => {
+  editingMsg.value = null
+}
+
 onMounted(() => {
   eventBus.on('onSelectPerson', onSelectPerson)
   eventBus.on('focusMsgInput', focusMsgInput)
+  eventBus.on('onEditMsg', onEditMsg)
 })
 onBeforeUnmount(() => {
   eventBus.off('onSelectPerson', onSelectPerson)
   eventBus.off('focusMsgInput', focusMsgInput)
+  eventBus.off('onEditMsg', onEditMsg)
 })
 
 	// 发送消息
@@ -105,6 +133,27 @@ const sendMsgHandler = () => {
   }
 
   isSending.value = true
+  if (editingMsg.value) {
+    const msg = editingMsg.value
+    apis
+      .editMsg({
+        msgId: msg.message.id,
+        roomId: msg.message.roomId,
+        content: inputMsg.value,
+      })
+      .send()
+      .then(() => {
+        inputMsg.value = ''
+        setInputText('')
+        clearEditing()
+      })
+      .finally(() => {
+        isSending.value = false
+        focusMsgInput()
+      })
+    return
+  }
+
   send(MsgEnum.TEXT, {
     content: inputMsg.value,
     replyMsgId: currentMsgReply.value.message?.id,
@@ -134,6 +183,10 @@ const showReplyContent = () => {
 
 // 置空回复的消息
 const onClearReply = () => (chatStore.currentMsgReply = {})
+const onCancelEdit = () => {
+  clearEditing()
+  setInputText('')
+}
 // 插入表情
 const insertEmoji = (emoji: string) => {
   const input = mentionRef.value?.input
@@ -243,6 +296,12 @@ const sendEmoji = throttle((url: string) => {
 
 <template>
   <div class="chat-edit">
+    <div v-show="editingMsg" class="reply-msg-wrapper">
+      <span>正在编辑消息</span>
+      <ElIcon class="reply-msg-icon" :size="14" @click="onCancelEdit">
+        <IEpClose />
+      </ElIcon>
+    </div>
     <div v-show="Object.keys(currentMsgReply).length" class="reply-msg-wrapper">
       <span> {{ showReplyContent() }} </span>
       <ElIcon class="reply-msg-icon" :size="14" @click="onClearReply">
@@ -272,7 +331,7 @@ const sendEmoji = throttle((url: string) => {
         autofocus
         :tabindex="!isSign || isSending"
         :disabled="!isSign || isSending"
-        :placeholder="isSign ? (isSending ? '消息发送中' : '来聊点什么吧~') : ''"
+        :placeholder="isSign ? (isSending ? '消息发送中' : editingMsg ? '正在编辑消息' : '来聊点什么吧~') : ''"
         :mentions="mentionList"
         @change="onInputChange"
         @send="sendMsgHandler"

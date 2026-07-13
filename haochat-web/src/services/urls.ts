@@ -10,6 +10,8 @@ export default {
   emailCodeLogin: `${prefix}/capi/user/public/email/code/login`, // 邮箱验证码登录
   forgotCode: `${prefix}/capi/user/public/password/forgot/code`,
   forgotReset: `${prefix}/capi/user/public/password/forgot/reset`,
+  refreshToken: `${prefix}/capi/user/public/token/refresh`,
+  logout: `${prefix}/capi/user/public/logout`,
   bindEmailCode: `${prefix}/capi/user/email/code`,
   bindEmail: `${prefix}/capi/user/email`,
   searchUser: `${prefix}/capi/user/public/search`,
@@ -32,6 +34,7 @@ export default {
   markMsg: `${prefix}/capi/chat/msg/mark`, // 消息标记
   blockUser: `${prefix}/capi/user/black`, // 拉黑用户
   recallMsg: `${prefix}/capi/chat/msg/recall`, // 撤回消息
+  editMsg: `${prefix}/capi/chat/msg/edit`, // 编辑消息
   fileUpload: `${prefix}/capi/oss/upload/url`, // 文件上传
   addEmoji: `${prefix}/capi/user/emoji`, // 增加表情
   deleteEmoji: `${prefix}/capi/user/emoji`, // 删除表情
@@ -40,7 +43,9 @@ export default {
   // -------------- 好友相关 ---------------
   getContactList: `${prefix}/capi/user/friend/page`, // 联系人列表
   requestFriendList: `${prefix}/capi/user/friend/apply/page`, // 好友申请列表
+  sentFriendList: `${prefix}/capi/user/friend/apply/sent/page`, // 发出的好友申请列表
   sendAddFriendRequest: `${prefix}/capi/user/friend/apply`, // 申请好友
+  rejectFriendRequest: `${prefix}/capi/user/friend/apply/reject`, // 拒绝好友申请
   deleteFriend: `${prefix}/capi/user/friend`, // 删除好友
   newFriendCount: `${prefix}/capi/user/friend/apply/unread`, // 申请未读数
 

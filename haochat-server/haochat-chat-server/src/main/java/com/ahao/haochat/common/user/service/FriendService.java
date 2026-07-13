@@ -46,6 +46,8 @@ public interface FriendService {
      */
     PageBaseResp<FriendApplyResp> pageApplyFriend(Long uid, PageBaseReq request);
 
+    PageBaseResp<FriendApplyResp> pageSentApplyFriend(Long uid, PageBaseReq request);
+
     /**
      * 申请未读数
      *
@@ -60,6 +62,8 @@ public interface FriendService {
      * @param request 请求
      */
     void applyApprove(Long uid, FriendApproveReq request);
+
+    void applyReject(Long uid, FriendApproveReq request);
 
     /**
      * 同意好友申请的事务主体。仅供 {@link #applyApprove} 在获取"好友对"分布式锁后经代理调用，

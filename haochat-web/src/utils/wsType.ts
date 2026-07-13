@@ -28,6 +28,8 @@ export enum WsResponseMessageType {
   TypingStatus = 12,
   /** AI流式回复片段 */
   AgentStreamChunk = 13,
+  /** 消息编辑 */
+  MessageEdit = 14,
 }
 
 /**
@@ -51,6 +53,7 @@ export type LoginInitResType = { loginUrl: string }
 export type LoginSuccessResType = Pick<UserInfoType, 'avatar' | 'name' | 'uid'> & {
   /** 用户的登录凭证，每次请求携带 */
   token: string
+  refreshToken?: string
 }
 
 export type OnStatusChangeType = {

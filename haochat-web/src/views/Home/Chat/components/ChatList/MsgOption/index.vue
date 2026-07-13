@@ -47,7 +47,7 @@ const onCopyMsg = () => {
     <span class="msg-option-item" title="点赞">
       <Icon icon="like" :size="14" :class="[{ 'like-active': isLike }]" v-login="() => onLike()" />
     </span>
-    <span class="msg-option-item" title="不喜欢">
+    <span class="msg-option-item" title="举报">
       <Icon
         icon="dislike"
         :size="15"

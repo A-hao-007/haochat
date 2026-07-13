@@ -25,6 +25,7 @@ public class CollectorInterceptor implements HandlerInterceptor {
         RequestInfo info = new RequestInfo();
         info.setUid(Optional.ofNullable(request.getAttribute(TokenInterceptor.ATTRIBUTE_UID)).map(Object::toString).map(Long::parseLong).orElse(null));
         info.setIp(ServletUtil.getClientIP(request));
+        info.setUserAgent(request.getHeader("User-Agent"));
         RequestHolder.set(info);
         return true;
     }

@@ -14,7 +14,9 @@ public enum ApplyStatusEnum {
 
     WAIT_APPROVAL(1, "待审批"),
 
-    AGREE(2, "同意");
+    AGREE(2, "同意"),
+
+    REJECT(3, "拒绝");
 
     private final Integer code;
 

@@ -47,6 +47,18 @@ public class FriendAdapter {
         }).collect(Collectors.toList());
     }
 
+    public static List<FriendApplyResp> buildSentFriendApplyList(List<UserApply> records) {
+        return records.stream().map(userApply -> {
+            FriendApplyResp friendApplyResp = new FriendApplyResp();
+            friendApplyResp.setUid(userApply.getTargetId());
+            friendApplyResp.setType(userApply.getType());
+            friendApplyResp.setApplyId(userApply.getId());
+            friendApplyResp.setMsg(userApply.getMsg());
+            friendApplyResp.setStatus(userApply.getStatus());
+            return friendApplyResp;
+        }).collect(Collectors.toList());
+    }
+
     public static List<FriendResp> buildFriend(List<UserFriend> list, List<User> userList) {
         Map<Long, User> userMap = userList.stream().collect(Collectors.toMap(User::getId, user -> user));
         return list.stream().map(userFriend -> {

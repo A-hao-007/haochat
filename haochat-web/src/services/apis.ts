@@ -30,10 +30,20 @@ const putRequest = <T>(url: string, params?: any, config?: any) =>
 const deleteRequest = <T>(url: string, params?: any, config?: any) =>
   alovaIns.Delete<T, unknown>(url, params, config)
 
+type AuthTokenResp = {
+  accessToken: string
+  refreshToken: string
+  token: string
+  uid: number
+  username: string
+  name: string
+  avatar: string
+}
+
 export default {
   /** 登录 */
   login: (params: { username: string; password: string }) =>
-    postRequest<{ token: string; uid: number; name: string; avatar: string }>(urls.login, params),
+    postRequest<AuthTokenResp>(urls.login, params),
   /** 注册 */
   register: (params: { username: string; name: string; password: string; email: string; emailCode: string }) =>
     postRequest<{ uid: number; username: string; name: string }>(urls.register, params),
@@ -42,10 +52,12 @@ export default {
     postRequest<void>(urls.registerEmailCode, params),
   /** 邮箱登录 */
   emailLogin: (params: { email: string; password: string }) =>
-    postRequest<{ token: string; uid: number; name: string; avatar: string }>(urls.emailLogin, params),
+    postRequest<AuthTokenResp>(urls.emailLogin, params),
   loginEmailCode: (params: { email: string }) => postRequest<void>(urls.loginEmailCode, params),
   emailCodeLogin: (params: { email: string; code: string }) =>
-    postRequest<{ token: string; uid: number; username: string; name: string; avatar: string }>(urls.emailCodeLogin, params),
+    postRequest<AuthTokenResp>(urls.emailCodeLogin, params),
+  refreshToken: (refreshToken: string) => postRequest<AuthTokenResp>(urls.refreshToken, { refreshToken }),
+  logout: (refreshToken?: string) => postRequest<void>(urls.logout, { refreshToken }),
   /** 找回密码-发送验证码 */
   forgotCode: (params: { email: string }) => postRequest<void>(urls.forgotCode, params),
   /** 找回密码-重置 */
@@ -102,6 +114,9 @@ export default {
     alovaIns.Put<void>(`${urls.updateAvatar}?avatar=${encodeURIComponent(avatar)}`),
   /** 撤回消息 */
   recallMsg: (data: { msgId: number; roomId: number }) => putRequest<void>(urls.recallMsg, data),
+  /** 编辑消息 */
+  editMsg: (data: { msgId: number; roomId: number; content: string }) =>
+    putRequest<void>(urls.editMsg, data),
   /** 拉黑用户 */
   blockUser: (data: { uid: number }) => putRequest<void>(urls.blockUser, data),
   /** 获取临时上传链接 */
@@ -120,13 +135,19 @@ export default {
   /** 获取好友申请列表 */
   requestFriendList: (params?: any) =>
     getRequest<ListResponse<RequestFriendItem>>(urls.requestFriendList, { params }),
+  /** 获取发出的好友申请列表 */
+  sentFriendList: (params?: any) =>
+    getRequest<ListResponse<RequestFriendItem>>(urls.sentFriendList, { params }),
   /** 发送添加好友请求 */
   sendAddFriendRequest: (params: { targetUid: number; msg: string }) =>
     postRequest<EmojiItem[]>(urls.sendAddFriendRequest, params),
   /** 同意好友申请 */
   applyFriendRequest: (params: { applyId: number }) =>
     putRequest(urls.sendAddFriendRequest, params),
-  /** 同意好友申请 */
+  /** 拒绝好友申请 */
+  rejectFriendRequest: (params: { applyId: number }) =>
+    putRequest(urls.rejectFriendRequest, params),
+  /** 删除好友 */
   deleteFriend: (params: { targetUid: number }) => deleteRequest(urls.deleteFriend, params),
   /** 好友申请未读数 */
   newFriendCount: () => getRequest<{ unReadCount: number }>(urls.newFriendCount),

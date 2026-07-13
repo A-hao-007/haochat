@@ -52,6 +52,12 @@ export const alovaIns = createAlova({
         } else {
           ElMessage.error(json.errMsg)
         }
+        if (response.status === 401) {
+          localStorage.removeItem('TOKEN')
+          localStorage.removeItem('REFRESH_TOKEN')
+          localStorage.removeItem('USER_INFO')
+          computedToken.clear()
+        }
         throw new Error(json.errMsg)
       } else {
         throw new Error(json.message)

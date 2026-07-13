@@ -1,42 +1,21 @@
 package com.ahao.haochat.common.user.service;
 
-/**
- * Description: 登录相关处理类
- * Author: <a href="https://github.com/A-hao-007">abin</a>
- * Date: 2023-03-19
- */
+import com.ahao.haochat.common.user.domain.vo.response.auth.AuthTokenResp;
+
 public interface LoginService {
-
-
-    /**
-     * 校验token是不是有效
-     *
-     * @param token
-     * @return
-     */
     boolean verify(String token);
 
-    /**
-     * 刷新token有效期
-     *
-     * @param token
-     */
     void renewalTokenIfNecessary(String token);
 
-    /**
-     * 登录成功，获取token
-     *
-     * @param uid
-     * @return 返回token
-     */
     String login(Long uid);
 
-    /**
-     * 如果token有效，返回uid
-     *
-     * @param token
-     * @return
-     */
-    Long getValidUid(String token);
+    AuthTokenResp loginWithTokens(Long uid);
 
+    AuthTokenResp loginWithTokens(Long uid, String ip, String userAgent);
+
+    AuthTokenResp refresh(String refreshToken);
+
+    void logout(String accessToken, String refreshToken);
+
+    Long getValidUid(String token);
 }
