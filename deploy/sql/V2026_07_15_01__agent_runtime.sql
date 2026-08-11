@@ -1,0 +1,48 @@
+-- Interview-grade Agent runtime: durable run state machine and step-level tracing.
+CREATE TABLE IF NOT EXISTS `agent_run` (
+    `id`                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `run_id`                 VARCHAR(36)     NOT NULL COMMENT 'public correlation id',
+    `request_id`             VARCHAR(96)     NOT NULL COMMENT 'idempotency key, normally message:{id}',
+    `uid`                    BIGINT          NOT NULL,
+    `room_id`                BIGINT          NOT NULL,
+    `status`                 VARCHAR(32)     NOT NULL,
+    `current_step`           VARCHAR(128)    NULL,
+    `provider`               VARCHAR(64)     NULL,
+    `model`                  VARCHAR(128)    NULL,
+    `user_input`             VARCHAR(2048)   NULL,
+    `final_reply`            TEXT            NULL,
+    `tool_call_count`        INT             NOT NULL DEFAULT 0,
+    `first_token_latency_ms` INT             NULL,
+    `latency_ms`             INT             NULL,
+    `error_code`             VARCHAR(64)     NULL,
+    `error_message`          VARCHAR(1000)   NULL,
+    `create_time`            DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `update_time`            DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `finish_time`            DATETIME(3)     NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_agent_run_run_id` (`run_id`),
+    UNIQUE KEY `uk_agent_run_request_id` (`request_id`),
+    KEY `idx_agent_run_uid_time` (`uid`, `create_time`),
+    KEY `idx_agent_run_status_time` (`status`, `create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Durable Agent execution state';
+
+CREATE TABLE IF NOT EXISTS `agent_run_step` (
+    `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `step_id`        VARCHAR(36)     NOT NULL,
+    `run_id`         VARCHAR(36)     NOT NULL,
+    `step_type`      VARCHAR(32)     NOT NULL,
+    `step_name`      VARCHAR(128)    NOT NULL,
+    `status`         VARCHAR(32)     NOT NULL,
+    `input_summary`  VARCHAR(2000)   NULL,
+    `output_summary` TEXT            NULL,
+    `attempt_count`  INT             NOT NULL DEFAULT 1,
+    `latency_ms`     INT             NULL,
+    `error_code`     VARCHAR(64)     NULL,
+    `error_message`  VARCHAR(1000)   NULL,
+    `create_time`    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `finish_time`    DATETIME(3)     NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_agent_run_step_id` (`step_id`),
+    KEY `idx_agent_run_step_run` (`run_id`, `id`),
+    KEY `idx_agent_run_step_type_status` (`step_type`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Observable Agent execution steps';
