@@ -31,11 +31,20 @@ export HAOCHAT_IMAGE_TAG="$image_tag"
 export HAOCHAT_GIT_SHA="$git_sha"
 export HAOCHAT_BUILD_TIME="$build_time"
 
+compose() {
+    sudo -n env \
+        HAOCHAT_RELEASE_VERSION="$HAOCHAT_RELEASE_VERSION" \
+        HAOCHAT_IMAGE_TAG="$HAOCHAT_IMAGE_TAG" \
+        HAOCHAT_GIT_SHA="$HAOCHAT_GIT_SHA" \
+        HAOCHAT_BUILD_TIME="$HAOCHAT_BUILD_TIME" \
+        docker compose --profile ai-memory "$@"
+}
+
 mkdir -p "$release_dir"
 chmod 750 "$release_root" "$release_dir"
 
-sudo -n docker compose --profile ai-memory config --quiet
-sudo -n docker compose --profile ai-memory build embedding backend web
+compose config --quiet
+compose build embedding backend web
 
 umask 077
 {

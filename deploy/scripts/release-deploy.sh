@@ -24,6 +24,15 @@ if [[ "$HAOCHAT_IMAGE_TAG" != "$image_tag" ]]; then
     exit 1
 fi
 
+compose() {
+    sudo -n env \
+        HAOCHAT_RELEASE_VERSION="$HAOCHAT_RELEASE_VERSION" \
+        HAOCHAT_IMAGE_TAG="$HAOCHAT_IMAGE_TAG" \
+        HAOCHAT_GIT_SHA="$HAOCHAT_GIT_SHA" \
+        HAOCHAT_BUILD_TIME="$HAOCHAT_BUILD_TIME" \
+        docker compose --profile ai-memory "$@"
+}
+
 for image in haochat-embedding haochat-backend haochat-web; do
     sudo -n docker image inspect "$image:$image_tag" >/dev/null
 done
@@ -38,7 +47,7 @@ rollback() {
     if [[ -n "$previous_dir" && -f "$previous_dir/release.env" ]]; then
         echo 'Deployment failed; restoring previous image tag.' >&2
         source "$previous_dir/release.env"
-        sudo -n docker compose --profile ai-memory up -d --no-build --no-deps embedding backend web || true
+        compose up -d --no-build --no-deps embedding backend web || true
     fi
     exit "$exit_code"
 }
@@ -52,7 +61,7 @@ sudo -n docker exec haochat-mysql sh -c \
     gzip -1 > "$release_dir/mysql-predeploy-$stamp.sql.gz"
 gzip -t "$release_dir/mysql-predeploy-$stamp.sql.gz"
 
-sudo -n docker compose --profile ai-memory up -d --no-build --no-deps embedding backend web
+compose up -d --no-build --no-deps embedding backend web
 
 for attempt in $(seq 1 40); do
     embedding_state="$(sudo -n docker inspect haochat-embedding --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}')"

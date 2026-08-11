@@ -22,7 +22,15 @@ if [[ ! -f "$release_dir/release.env" ]]; then
 fi
 
 source "$release_dir/release.env"
-sudo -n docker compose --profile ai-memory up -d --no-build --no-deps embedding backend web
+compose() {
+    sudo -n env \
+        HAOCHAT_RELEASE_VERSION="$HAOCHAT_RELEASE_VERSION" \
+        HAOCHAT_IMAGE_TAG="$HAOCHAT_IMAGE_TAG" \
+        HAOCHAT_GIT_SHA="$HAOCHAT_GIT_SHA" \
+        HAOCHAT_BUILD_TIME="$HAOCHAT_BUILD_TIME" \
+        docker compose --profile ai-memory "$@"
+}
+compose up -d --no-build --no-deps embedding backend web
 ln -sfn "$release_dir" "$release_root/current"
 
 printf 'ROLLED_BACK_TO=%s\n' "$HAOCHAT_IMAGE_TAG"
