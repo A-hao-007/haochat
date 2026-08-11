@@ -77,8 +77,25 @@ for attempt in $(seq 1 40); do
     sleep 3
 done
 
-curl --silent --show-error --max-time 10 http://127.0.0.1:8080/ >/dev/null
-curl --insecure --fail --location --silent --show-error --max-time 15 http://127.0.0.1/ >/dev/null
+wait_for_http() {
+    local name="$1"
+    local url="$2"
+    for attempt in $(seq 1 40); do
+        if curl --silent --max-time 5 --output /dev/null "$url"; then
+            printf '%s is ready: %s\n' "$name" "$url"
+            return 0
+        fi
+        sleep 3
+    done
+    echo "$name did not become HTTP-ready: $url" >&2
+    return 1
+}
+
+# A backend 404 at the root and a web 3xx redirect both prove that the
+# corresponding HTTP server is accepting requests. Functional smoke checks
+# run after the containers are switched.
+wait_for_http backend http://127.0.0.1:8080/
+wait_for_http web http://127.0.0.1/
 
 if [[ -n "$previous_dir" ]]; then
     ln -sfn "$previous_dir" "$release_root/previous"
