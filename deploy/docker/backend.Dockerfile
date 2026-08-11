@@ -4,7 +4,8 @@ WORKDIR /workspace
 COPY haochat-server/pom.xml ./pom.xml
 COPY haochat-server/haochat-tools ./haochat-tools
 COPY haochat-server/haochat-chat-server ./haochat-chat-server
-RUN mvn -pl haochat-chat-server -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -pl haochat-chat-server -am package -DskipTests
 
 FROM eclipse-temurin:17-jre
 

@@ -89,6 +89,10 @@ report.html
 # Package lock (consider committing for reproducible builds)
 # pnpm-lock.yaml
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Cypress
 /cypress/videos/
 /cypress/screenshots/

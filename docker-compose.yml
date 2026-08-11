@@ -64,14 +64,45 @@ services:
     volumes:
       - qdrant-data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6333/healthz >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
       interval: 15s
       timeout: 5s
       retries: 10
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 256M
+
+  embedding:
+    profiles:
+      - ai-memory
+    build:
+      context: .
+      dockerfile: deploy/docker/embedding.Dockerfile
+    container_name: haochat-embedding
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      EMBEDDING_CACHE_DIR: /models
+      EMBEDDING_API_KEY: ${AI_EMBEDDING_API_KEY:-local-haochat-embedding}
+      EMBEDDING_THREADS: ${LOCAL_EMBEDDING_THREADS:-2}
+      WHISPER_MODEL: ${LOCAL_WHISPER_MODEL:-base}
+      WHISPER_CACHE_DIR: /models/whisper
+      WHISPER_THREADS: ${LOCAL_WHISPER_THREADS:-2}
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://hf-mirror.com}
+      HF_HUB_DISABLE_XET: "1"
+    volumes:
+      - embedding-models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   neo4j:
     profiles:
@@ -81,9 +112,9 @@ services:
     restart: unless-stopped
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-change-neo4j-password}
-      NEO4J_server_memory_heap_initial__size: 256m
-      NEO4J_server_memory_heap_max__size: 384m
-      NEO4J_server_memory_pagecache_size: 256m
+      NEO4J_server_memory_heap_initial__size: 128m
+      NEO4J_server_memory_heap_max__size: 256m
+      NEO4J_server_memory_pagecache_size: 128m
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
@@ -95,7 +126,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 512M
 
   minio:
     image: minio/minio:latest
@@ -282,6 +313,13 @@ services:
       AI_EMBEDDING_BASE_URL: ${AI_EMBEDDING_BASE_URL:-}
       AI_EMBEDDING_API_KEY: ${AI_EMBEDDING_API_KEY:-}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
+      VOICE_TRANSCRIPTION_URL: http://embedding:8000/v1/audio/transcriptions/raw
+      VOICE_TRANSCRIPTION_API_KEY: ${AI_EMBEDDING_API_KEY:-local-haochat-embedding}
+      AI_EMBEDDING_QUERY_PREFIX: ${AI_EMBEDDING_QUERY_PREFIX:-}
+      AI_EMBEDDING_DOCUMENT_PREFIX: ${AI_EMBEDDING_DOCUMENT_PREFIX:-}
+      AI_MEMORY_SYNC_BATCH_SIZE: ${AI_MEMORY_SYNC_BATCH_SIZE:-20}
+      AI_MEMORY_MAX_SYNC_RETRIES: ${AI_MEMORY_MAX_SYNC_RETRIES:-12}
+      AI_MEMORY_SYNC_RETRY_DELAY_SECONDS: ${AI_MEMORY_SYNC_RETRY_DELAY_SECONDS:-60}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       NEO4J_URL: ${NEO4J_URL:-http://neo4j:7474}
       NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
@@ -370,3 +408,5 @@ volumes:
     name: haochat_neo4j-data
   neo4j-logs:
     name: haochat_neo4j-logs
+  embedding-models:
+    name: haochat_embedding-models
