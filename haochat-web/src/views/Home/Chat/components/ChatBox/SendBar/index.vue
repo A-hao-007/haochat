@@ -37,6 +37,9 @@ const inputMsg = ref('')
 const mentionRef = ref<typeof ElInput>()
 const mentionList = ref<IMention[]>([])
 const isAudio = ref(false)
+const speechSupported = ref(false)
+const isTranscribing = ref(false)
+const speechInterim = ref('')
 const isHovered = ref(false)
 const tempMessageId = ref(0)
 const showEmoji = ref(false)
@@ -73,6 +76,70 @@ const setInputText = (content: string) => {
   })
 }
 
+let speechRecognition: any = null
+let speechBaseText = ''
+
+const applySpeechText = (content: string) => {
+  inputMsg.value = content
+  mentionList.value = []
+  nextTick(() => {
+    const input = mentionRef.value?.input
+    if (input) input.innerText = content
+  })
+}
+
+const initSpeechRecognition = () => {
+  const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  speechSupported.value = !!Recognition
+  if (!Recognition) return
+  speechRecognition = new Recognition()
+  speechRecognition.lang = 'zh-CN'
+  speechRecognition.continuous = true
+  speechRecognition.interimResults = true
+  speechRecognition.onresult = (event: any) => {
+    let finalText = ''
+    let interimText = ''
+    for (let i = 0; i < event.results.length; i++) {
+      const transcript = event.results[i][0]?.transcript || ''
+      if (event.results[i].isFinal) finalText += transcript
+      else interimText += transcript
+    }
+    speechInterim.value = interimText
+    const prefix = speechBaseText ? `${speechBaseText} ` : ''
+    applySpeechText(`${prefix}${finalText}${interimText}`.trim())
+  }
+  speechRecognition.onerror = (event: any) => {
+    isTranscribing.value = false
+    if (event.error === 'not-allowed') ElMessage.error('请允许浏览器使用麦克风后重试')
+    else if (event.error !== 'no-speech' && event.error !== 'aborted')
+      ElMessage.error('语音识别失败，请重试')
+  }
+  speechRecognition.onend = () => {
+    isTranscribing.value = false
+    speechInterim.value = ''
+  }
+}
+
+const toggleSpeechToText = () => {
+  if (!speechSupported.value || !speechRecognition) {
+    ElMessage.warning('当前浏览器不支持语音转文字，请使用最新版 Chrome 或 Edge')
+    return
+  }
+  if (isTranscribing.value) {
+    speechRecognition.stop()
+    return
+  }
+  isAudio.value = false
+  speechBaseText = inputMsg.value.trim()
+  try {
+    speechRecognition.start()
+    isTranscribing.value = true
+    ElMessage.success('正在聆听，点击麦克风可结束')
+  } catch {
+    ElMessage.warning('语音识别正在启动，请稍候')
+  }
+}
+
 const onEditMsg = (msg: MessageType) => {
   if (msg.message.type !== MsgEnum.TEXT) return
   editingMsg.value = msg
@@ -89,11 +156,13 @@ onMounted(() => {
   eventBus.on('onSelectPerson', onSelectPerson)
   eventBus.on('focusMsgInput', focusMsgInput)
   eventBus.on('onEditMsg', onEditMsg)
+  initSpeechRecognition()
 })
 onBeforeUnmount(() => {
   eventBus.off('onSelectPerson', onSelectPerson)
   eventBus.off('focusMsgInput', focusMsgInput)
   eventBus.off('onEditMsg', onEditMsg)
+  speechRecognition?.abort?.()
 })
 
 // 发送消息
@@ -316,36 +385,55 @@ const sendEmoji = throttle((url: string) => {
         <IEpClose />
       </ElIcon>
     </div>
-    <div class="msg-input">
-      <div class="action" @click="isAudio = !isAudio">
-        <Icon v-show="!isAudio" icon="voice" class="audio" />
-        <Icon v-show="isAudio" icon="jianpan" />
+    <div class="msg-input" :class="{ transcribing: isTranscribing, 'audio-mode': isAudio }">
+      <div class="composer-main">
+        <button v-if="isAudio" class="mode-switch" type="button" title="返回文字输入" @click="isAudio = false">
+          <Icon icon="jianpan" :size="18" />
+        </button>
+        <div
+          v-show="isAudio"
+          class="recorded"
+          @mousedown="onStartRecord()"
+          @mouseup="stop()"
+          @mouseleave="isRecording && stop()"
+          @touchstart.passive="onStartRecord()"
+          @touchend.passive="stop()"
+        >
+          <div class="recorded-tips">
+            <span class="record-dot"></span>{{ isRecording ? `正在录制 ${second}s，松开发送` : '按住录制语音消息' }}
+          </div>
+        </div>
+        <MsgInput
+          v-show="!isAudio"
+          ref="mentionRef"
+          v-model="inputMsg"
+          class="m-input"
+          autofocus
+          :tabindex="!isSign || isSending"
+          :disabled="!isSign || isSending"
+          :placeholder="isSign ? (isSending ? '消息发送中…' : editingMsg ? '正在编辑消息' : '输入消息，或点击下方麦克风转成文字') : ''"
+          :mentions="mentionList"
+          @change="onInputChange"
+          @send="sendMsgHandler"
+        />
+        <button
+          v-if="!isAudio"
+          :class="['send-button', { ready: inputMsg.trim().length, disabled: !inputMsg.trim().length }]"
+          type="button"
+          aria-label="发送消息"
+          @click="sendMsgHandler"
+        >
+          <Icon class="send" icon="huojian" :size="18" />
+        </button>
       </div>
-      <div
-        v-show="isAudio"
-        class="recorded"
-        @mousedown="onStartRecord()"
-        @mouseup="stop()"
-        @touchstart.passive="onStartRecord()"
-        @touchend.passive="stop()"
-      >
-        <div class="recorded-tips">{{ isRecording ? `录制中 ${second}s` : '按住说话' }}</div>
-      </div>
-      <MsgInput
-        class="m-input"
-        v-show="!isAudio"
-        v-model="inputMsg"
-        ref="mentionRef"
-        autofocus
-        :tabindex="!isSign || isSending"
-        :disabled="!isSign || isSending"
-        :placeholder="
-          isSign ? (isSending ? '消息发送中' : editingMsg ? '正在编辑消息' : '来聊点什么吧~') : ''
-        "
-        :mentions="mentionList"
-        @change="onInputChange"
-        @send="sendMsgHandler"
-      />
+      <div v-show="!isAudio" class="composer-toolbar">
+        <div class="tool-group">
+          <button :class="['action', 'speech-action', { active: isTranscribing }]" type="button" title="语音转文字" @click="toggleSpeechToText">
+            <IEpMicrophone :size="17" />
+          </button>
+          <button class="action" type="button" title="发送语音消息" @click="isAudio = true">
+            <Icon icon="voice" :size="17" />
+          </button>
       <el-popover
         placement="top"
         effect="dark"
@@ -357,10 +445,10 @@ const sendEmoji = throttle((url: string) => {
         trigger="click"
       >
         <template #reference>
-          <div class="action" @mouseover="isHovered = true" @mouseleave="isHovered = false">
+          <button class="action" type="button" title="表情" @mouseover="isHovered = true" @mouseleave="isHovered = false">
             <Icon v-if="isHovered" icon="shocked" :size="18" colorful />
             <Icon v-else icon="happy1" :size="18" colorful />
-          </div>
+          </button>
         </template>
         <div class="emoji-panel">
           <div v-show="panelIndex === 0" class="emoji-panel-content">
@@ -418,27 +506,14 @@ const sendEmoji = throttle((url: string) => {
           </div>
         </div>
       </el-popover>
-      <Icon
-        class="action"
-        icon="at"
-        :size="20"
-        colorful
-        @click="insertInputText({ content: '@', ...mentionRef?.range })"
-      />
-      <Icon
-        :class="['action', { disabled: isUploading }]"
-        icon="tupian"
-        :size="18"
-        colorful
-        @click="openFileSelect('img')"
-      />
-      <Icon class="action" icon="wenjianjia2" :size="20" colorful @click="openFileSelect('file')" />
-      <div class="divider" />
-      <div
-        :class="['action', { 'is-edit': inputMsg.length, 'disabled': !inputMsg.length }]"
-        @click="sendMsgHandler"
-      >
-        <Icon class="send" icon="huojian" :size="20" />
+          <button class="action at-action" type="button" title="提及成员" @click="insertInputText({ content: '@', ...mentionRef?.range })"><span class="at-symbol">@</span></button>
+          <button :class="['action', { disabled: isUploading }]" type="button" title="发送图片" @click="openFileSelect('img')"><Icon icon="tupian" :size="17" colorful /></button>
+          <button class="action" type="button" title="发送文件" @click="openFileSelect('file')"><Icon icon="wenjianjia2" :size="18" colorful /></button>
+        </div>
+        <div class="composer-meta">
+          <span v-if="isTranscribing" class="speech-status"><i></i>正在听{{ speechInterim ? '，识别中…' : '…' }}</span>
+          <span class="shortcut-hint">Enter 发送 · Shift+Enter 换行</span>
+        </div>
       </div>
     </div>
     <span v-if="!isSign" class="tips" @click="loginStore.showLogin = true">

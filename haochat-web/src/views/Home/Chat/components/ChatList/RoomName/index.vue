@@ -4,8 +4,10 @@ import { useChatStore } from '@/stores/chat'
 import type { MessageType } from '@/services/types'
 import { MsgEnum } from '@/enums'
 import SettingBox from '@/views/Home/Chat/components/ChatList/RoomName/components/SettingBox/SettingBox.vue'
+import { judgeClient } from '@/utils/detectDevice'
 
 const chatStore = useChatStore()
+const client = judgeClient()
 const isShowSetting = ref<boolean>(false)
 const showSearch = ref(false)
 const searchKeyword = ref('')
@@ -114,18 +116,36 @@ const clearSearch = () => {
     </div>
   </div>
 
-  <el-drawer v-model="isShowSetting" direction="rtl" append-to-body>
-    <template #header>
-      <h4 class="text-[#f5f5f5]">设置</h4>
-    </template>
-    <template #default>
-      <SettingBox />
-    </template>
+  <el-drawer
+    v-model="isShowSetting"
+    direction="rtl"
+    append-to-body
+    :with-header="false"
+    :size="client === 'PC' ? '500px' : '94%'"
+    class="group-settings-drawer"
+  >
+    <SettingBox @close="isShowSetting = false" />
   </el-drawer>
 </template>
 
-<style lang="scss" src="./styles.scss">
-.el-drawer__header {
-  margin-bottom: 0 !important;
+<style lang="scss" src="./styles.scss" scoped />
+
+<style lang="scss">
+.group-settings-drawer {
+  overflow: hidden;
+  background: #f7f9fc !important;
+  border-radius: 22px 0 0 22px;
+  box-shadow: -18px 0 60px rgba(26, 45, 78, 0.18) !important;
+
+  .el-drawer__body {
+    padding: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .group-settings-drawer {
+    border-radius: 18px 0 0 18px;
+  }
 }
 </style>

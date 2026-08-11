@@ -11,7 +11,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { copyToClip, handleCopyImg } from '@/utils/copy'
 import { useChatStore } from '@/stores/chat'
-import type { MessageType } from '@/services/types'
+import type { MessageType, VoiceBody } from '@/services/types'
 import { MsgEnum, PowerEnum } from '@/enums'
 import { useEmojiStore } from '@/stores/emoji'
 import { useEmojiUpload } from '@/hooks/useEmojiUpload'
@@ -34,6 +34,16 @@ const isCurrentUser = computed(() => props.msg?.fromUser.uid === userInfo.uid)
 const isAdmin = computed(() => userInfo?.power === PowerEnum.ADMIN)
 const canEdit = computed(
   () => isCurrentUser.value && props.msg?.message.type === MsgEnum.TEXT && !props.msg.loading,
+)
+const voiceBody = computed(() => props.msg.message.body as VoiceBody)
+const voiceTranscriptKey = computed(
+  () => `VOICE_TRANSCRIPT_${voiceBody.value?.assetId || voiceBody.value?.url}`,
+)
+const currentVoiceTranscript = computed(
+  () => voiceBody.value?.transcript || sessionStorage.getItem(voiceTranscriptKey.value) || '',
+)
+const voiceTranscriptLabel = computed(() =>
+  currentVoiceTranscript.value ? '收起语音文字' : '语音转文字',
 )
 // 撤回
 const onRecall = async () => {
@@ -107,6 +117,27 @@ const onAddEmoji = () => {
 const onDelete = () => chatStore.deleteMsg(props.msg.message.id)
 
 const onEdit = () => eventBus.emit('onEditMsg', props.msg)
+
+const onTranscribeVoice = async () => {
+  const body = voiceBody.value
+  if (currentVoiceTranscript.value) {
+    body.transcript = ''
+    sessionStorage.removeItem(voiceTranscriptKey.value)
+    return
+  }
+  if (!body.assetId) {
+    ElMessage.warning('这条旧语音缺少文件标识，暂时无法转写')
+    return
+  }
+  ElMessage.info('正在识别语音…')
+  try {
+    const result = await apis.transcribeVoice({ assetId: body.assetId }).send()
+    body.transcript = result.text || '未识别到清晰语音'
+    sessionStorage.setItem(`VOICE_TRANSCRIPT_${body.assetId}`, body.transcript)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '语音转文字失败，请稍后重试')
+  }
+}
 </script>
 
 <template>
@@ -152,6 +183,15 @@ const onEdit = () => eventBus.emit('onEditMsg', props.msg)
     <ContextMenuItem v-if="canEdit" label="编辑消息" @click="onEdit">
       <template #icon>
         <IEpEdit :size="13" />
+      </template>
+    </ContextMenuItem>
+    <ContextMenuItem
+      v-if="msg.message.type === MsgEnum.VOICE && !msg.loading"
+      :label="voiceTranscriptLabel"
+      @click="onTranscribeVoice"
+    >
+      <template #icon>
+        <IEpDocument :size="14" />
       </template>
     </ContextMenuItem>
     <ContextMenuItem

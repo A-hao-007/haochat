@@ -19,6 +19,7 @@ import { computedToken } from '@/services/request'
 import { worker } from './initWorker'
 import shakeTitle from '@/utils/shakeTitle'
 import notify from '@/utils/notification'
+import { clearAccountScopedStorage } from '@/utils/accountCache'
 
 /** 通知文案：文本消息展示内容，其他类型展示占位文案 */
 function previewMsg(msg: MessageType): string {
@@ -66,9 +67,9 @@ class WS {
   #connectReady = false
 
   constructor() {
-    this.initConnect()
     // 收到消息
     worker.addEventListener('message', this.onWorkerMsg)
+    this.initConnect()
 
     // 后台重试次数达到上限之后，tab 获取焦点再重试
     document.addEventListener('visibilitychange', () => {
@@ -192,6 +193,7 @@ class WS {
       case WsResponseMessageType.LoginSuccess: {
         userStore.isSign = true
         const { token, ...rest } = params.data as LoginSuccessResType
+        clearAccountScopedStorage()
         // FIXME 可以不需要赋值了，单独请求了接口。
         userStore.userInfo = { ...userStore.userInfo, ...rest }
         localStorage.setItem('USER_INFO', JSON.stringify(rest))
@@ -266,6 +268,7 @@ class WS {
         localStorage.removeItem('USER_INFO')
         localStorage.removeItem('TOKEN')
         localStorage.removeItem('REFRESH_TOKEN')
+        clearAccountScopedStorage()
         loginStore.loginStatus = LoginStatus.Init
         // 跳转到登录页
         Router.push('/login')

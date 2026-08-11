@@ -9,7 +9,10 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import router from './router'
 import App from './App.vue'
 import { useTheme } from './hooks/useTheme'
+import { migrateAccountScopedStorage } from './utils/accountCache'
 import 'dayjs/locale/zh-cn'
+
+migrateAccountScopedStorage()
 
 import './styles/main.css'
 import '@/utils/websocket'

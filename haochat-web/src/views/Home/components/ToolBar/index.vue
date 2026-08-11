@@ -9,6 +9,8 @@ import { useTheme } from '@/hooks/useTheme'
 import { ElMessageBox } from 'element-plus'
 import apis from '@/services/apis'
 import { RoomTypeEnum } from '@/enums'
+import { clearAccountToken, updateAccountSession } from '@/utils/accountManager'
+import { clearAccountScopedStorage } from '@/utils/accountCache'
 
 const client = judgeClient()
 const visible = ref(false)
@@ -46,15 +48,28 @@ const handleLogout = async () => {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await apis
-      .logout(localStorage.getItem('REFRESH_TOKEN') || undefined)
-      .send()
-      .catch(() => undefined)
+    const uid = userStore.userInfo.uid
+    const keepQuickLogin = localStorage.getItem('REMEMBER_LOGIN') !== '0'
+    if (uid && keepQuickLogin) {
+      updateAccountSession(
+        uid,
+        localStorage.getItem('TOKEN'),
+        localStorage.getItem('REFRESH_TOKEN'),
+      )
+    }
+    if (!keepQuickLogin) {
+      await apis
+        .logout(localStorage.getItem('REFRESH_TOKEN') || undefined)
+        .send()
+        .catch(() => undefined)
+      if (uid) clearAccountToken(uid)
+    }
     userStore.isSign = false
     userStore.userInfo = {}
     localStorage.removeItem('TOKEN')
     localStorage.removeItem('REFRESH_TOKEN')
     localStorage.removeItem('USER_INFO')
+    clearAccountScopedStorage()
     // 整页刷新回登录页：SPA 内部跳转不会清掉内存里的消息/会话/当前房间等状态，
     // 下一个账号在同一浏览器登录时会看到上一个账号的聊天内容（已实际发生过）
     window.location.replace('/login')

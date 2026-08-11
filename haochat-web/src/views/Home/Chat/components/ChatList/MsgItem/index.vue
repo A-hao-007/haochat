@@ -36,7 +36,7 @@ const props = withDefaults(
     isShowTime: true,
     isShowTimeBlock: true,
     bubbleMode: 'spread',
-    tooltipTrigger: () => 'hover',
+    tooltipTrigger: () => 'click',
   },
 )
 

@@ -9,6 +9,7 @@ export default {
   loginEmailCode: `${prefix}/capi/user/public/login/email/code`, // 发送登录验证码
   emailCodeLogin: `${prefix}/capi/user/public/email/code/login`, // 邮箱验证码登录
   forgotCode: `${prefix}/capi/user/public/password/forgot/code`,
+  forgotVerify: `${prefix}/capi/user/public/password/forgot/verify`,
   forgotReset: `${prefix}/capi/user/public/password/forgot/reset`,
   refreshToken: `${prefix}/capi/user/public/token/refresh`,
   logout: `${prefix}/capi/user/public/logout`,
@@ -17,6 +18,7 @@ export default {
   searchUser: `${prefix}/capi/user/public/search`,
   updateAvatar: `${prefix}/capi/user/avatar`,
   modifyPassword: `${prefix}/capi/user/password`, // 修改密码
+  verifyPassword: `${prefix}/capi/user/password/verify`, // 修改密码前验证当前密码
 
   getMemberStatistic: `${prefix}/capi/chat/public/member/statistic`,
   getUserInfoBatch: `${prefix}/capi/user/public/summary/userInfo/batch`,
@@ -25,6 +27,7 @@ export default {
   getAiBots: `${prefix}/capi/chat/public/ai/bots`, // 已启用的AI助手列表
   getMsgList: `${prefix}/capi/chat/public/msg/page`,
   sendMsg: `${prefix}/capi/chat/msg`,
+  transcribeVoice: `${prefix}/capi/chat/msg/voice/transcribe`, // 语音消息转文字
   confirmAgentAction: `${prefix}/capi/chat/msg/confirm`, // 确认/取消AI助手发起的高风险操作提议
   stopAiStream: `${prefix}/capi/chat/ai/stop`, // 停止AI流式回复
   getUserInfoDetail: `${prefix}/capi/user/userInfo`, // 获取用户信息详情

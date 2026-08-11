@@ -66,6 +66,9 @@ export default {
   logout: (refreshToken?: string) => postRequest<void>(urls.logout, { refreshToken }),
   /** 找回密码-发送验证码 */
   forgotCode: (params: { email: string }) => postRequest<void>(urls.forgotCode, params),
+  /** 找回密码-先验证邮箱验证码 */
+  forgotVerify: (params: { email: string; code: string }) =>
+    postRequest<void>(urls.forgotVerify, params),
   /** 找回密码-重置 */
   forgotReset: (params: { email: string; code: string; newPassword: string }) =>
     postRequest<void>(urls.forgotReset, params),
@@ -98,6 +101,9 @@ export default {
   getMsgList: (params?: any) => getRequest<ListResponse<MessageType>>(urls.getMsgList, params),
   /** 发送消息 */
   sendMsg: (data?: MessageReq) => postRequest<MessageType>(urls.sendMsg, data),
+  /** 将有权访问的语音消息转成文字 */
+  transcribeVoice: (params: { assetId: number }) =>
+    postRequest<{ text: string; language: string; duration: number }>(urls.transcribeVoice, params),
   /** 确认/取消AI助手发起的高风险操作提议 */
   confirmAgentAction: (params: { roomId: number; confirmed: boolean }) =>
     putRequest<void>(urls.confirmAgentAction, params),
@@ -116,6 +122,8 @@ export default {
   /** 修改密码 */
   modifyPassword: (params: { oldPassword: string; newPassword: string }) =>
     putRequest<void>(urls.modifyPassword, params),
+  /** 修改密码前验证当前密码 */
+  verifyPassword: (password: string) => postRequest<void>(urls.verifyPassword, { password }),
   /** 更新头像 */
   updateAvatar: (avatar: string) =>
     alovaIns.Put<void>(`${urls.updateAvatar}?avatar=${encodeURIComponent(avatar)}`),

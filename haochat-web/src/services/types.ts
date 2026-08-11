@@ -275,6 +275,9 @@ export type ImageBody = {
 }
 /** 语音消息体 */
 export type VoiceBody = {
+  assetId?: number
+  /** 客户端按需生成的语音转写，仅用于当前会话展示 */
+  transcript?: string
   size: number
   second: number
   url: string

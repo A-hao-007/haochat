@@ -55,15 +55,16 @@ const onCloseHandler = () => {
   // 达到重连次数上限
   if (reconnectCount >= reconnectCountMax) {
     reconnectCount = 0
+    lockReconnect = false
     return
   }
 
   // 断线重连
   timer = setTimeout(() => {
-    initConnection()
+    timer = null
     reconnectCount++
-    // 标识已经开启重连任务
     lockReconnect = false
+    initConnection()
   }, 2000)
 }
 
@@ -75,11 +76,16 @@ const onConnectError = () => {
 // ws 连接 close
 const onConnectClose = () => {
   onCloseHandler()
-  token = null
   postMsg({ type: 'close' })
 }
 // ws 连接成功
 const onConnectOpen = () => {
+  reconnectCount = 0
+  lockReconnect = false
+  if (timer) {
+    clearTimeout(timer)
+    timer = null
+  }
   postMsg({ type: 'open' })
   // 心跳❤️检测
   sendHeartPack()
@@ -99,10 +105,17 @@ const getWsUrl = () => {
 
 // 初始化 ws 连接
 const initConnection = () => {
-  connection?.removeEventListener('message', onConnectMsg)
-  connection?.removeEventListener('open', onConnectOpen)
-  connection?.removeEventListener('close', onConnectClose)
-  connection?.removeEventListener('error', onConnectError)
+  const previousConnection = connection
+  previousConnection?.removeEventListener('message', onConnectMsg)
+  previousConnection?.removeEventListener('open', onConnectOpen)
+  previousConnection?.removeEventListener('close', onConnectClose)
+  previousConnection?.removeEventListener('error', onConnectError)
+  if (
+    previousConnection?.readyState === WebSocket.OPEN ||
+    previousConnection?.readyState === WebSocket.CONNECTING
+  ) {
+    previousConnection.close()
+  }
   // 建立链接
   // 本地配置到 .env 里面修改。生产配置在 .env.production 里面
   connection = new WebSocket(`${getWsUrl()}${token ? `?token=${token}` : ''}`)
@@ -120,6 +133,11 @@ self.onmessage = (e: MessageEvent<string>) => {
   const { type, value } = JSON.parse(e.data)
   switch (type) {
     case 'initWS': {
+      if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
+      lockReconnect = false
       reconnectCount = 0
       token = value
       initConnection()

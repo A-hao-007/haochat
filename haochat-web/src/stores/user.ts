@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import apis from '@/services/apis'
 import { defineStore } from 'pinia'
 import type { UserInfoType } from '@/services/types'
@@ -19,6 +19,17 @@ export const useUserStore = defineStore('user', () => {
   if (!Object.keys(userInfo.value).length && Object.keys(localUserInfo).length) {
     userInfo.value = localUserInfo
   }
+
+  // Keep the lightweight bootstrap profile in sync after name/avatar/email changes.
+  watch(
+    userInfo,
+    (value) => {
+      if (isSign.value && value.uid) {
+        localStorage.setItem('USER_INFO', JSON.stringify(value))
+      }
+    },
+    { deep: true },
+  )
 
   function getUserDetailAction() {
     apis

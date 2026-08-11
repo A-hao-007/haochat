@@ -7,7 +7,14 @@ import QrCode from 'qrcode.vue'
 import apis from '@/services/apis'
 import { computedToken } from '@/services/request'
 import { ElMessage } from 'element-plus'
-import { getRecentAccounts, upsertAccount, type RecentAccount } from '@/utils/accountManager'
+import {
+  getRecentAccounts,
+  removeAccount,
+  upsertAccount,
+  clearAccountToken,
+  type RecentAccount,
+} from '@/utils/accountManager'
+import { clearAccountScopedStorage } from '@/utils/accountCache'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -34,8 +41,10 @@ const registerCodeCountdown = ref(0)
 // 登录成功后统一处理登录态 + 记录最近账号
 const applyLoginSuccess = (res: any) => {
   const accessToken = res.accessToken || res.token
+  clearAccountScopedStorage()
   localStorage.setItem('TOKEN', accessToken)
-  res.refreshToken && localStorage.setItem('REFRESH_TOKEN', res.refreshToken)
+  if (res.refreshToken) localStorage.setItem('REFRESH_TOKEN', res.refreshToken)
+  else localStorage.removeItem('REFRESH_TOKEN')
   localStorage.setItem(
     'USER_INFO',
     JSON.stringify({ uid: res.uid, name: res.name, avatar: res.avatar }),
@@ -53,6 +62,7 @@ const applyLoginSuccess = (res: any) => {
       avatar: res.avatar,
       username: res.username,
       token: accessToken,
+      refreshToken: res.refreshToken,
       lastLogin: Date.now(),
     },
     remember.value,
@@ -186,38 +196,65 @@ const handleCodeLogin = async () => {
 }
 
 // 切换账号：有有效 token 则免密登录，否则回填用户名让其输入密码
-const switchTo = (acc: RecentAccount) => {
-  if (acc.token) {
+const switchTo = async (acc: RecentAccount) => {
+  if (!acc.refreshToken && !acc.token) {
+    isLogin.value = true
+    loginForm.username = acc.username || ''
+    loginForm.password = ''
+    ElMessage.info('该账号未保留登录状态，请输入密码')
+    return
+  }
+  loading.value = true
+  try {
     remember.value = true
+    const tokenResp = acc.refreshToken
+      ? await apis.refreshToken(acc.refreshToken).send()
+      : { accessToken: acc.token }
     applyLoginSuccess({
       uid: acc.uid,
       name: acc.name,
       avatar: acc.avatar,
       username: acc.username,
-      token: acc.token,
+      ...tokenResp,
     })
-    ElMessage.success(`已切换到 ${acc.name}`)
-  } else {
+    ElMessage.success(`正在进入 ${acc.name}`)
+  } catch (e: any) {
+    clearAccountToken(acc.uid)
+    recentAccounts.value = getRecentAccounts()
     isLogin.value = true
     loginForm.username = acc.username || ''
     loginForm.password = ''
-    ElMessage.info('请输入密码登录')
+    ElMessage.warning(e?.message || '登录状态已过期，请重新输入密码')
+  } finally {
+    loading.value = false
   }
+}
+
+// 仅删除本机的历史登录记录，不删除服务器账号
+const deleteRecentAccount = (acc: RecentAccount) => {
+  removeAccount(acc.uid)
+  recentAccounts.value = getRecentAccounts()
+  ElMessage.success(`已移除 ${acc.name} 的登录记录`)
 }
 
 // 忘记密码（邮箱验证码找回）
 const forgot = reactive({
   show: false,
+  step: 1 as 1 | 2,
   email: '',
   code: '',
   newPassword: '',
+  confirmPassword: '',
   sending: false,
+  verifying: false,
   saving: false,
 })
 const onForgotPassword = () => {
+  forgot.step = 1
   forgot.email = ''
   forgot.code = ''
   forgot.newPassword = ''
+  forgot.confirmPassword = ''
   forgot.show = true
 }
 const sendForgotCode = async () => {
@@ -235,13 +272,35 @@ const sendForgotCode = async () => {
     forgot.sending = false
   }
 }
+const verifyForgotIdentity = async () => {
+  const email = forgot.email.trim()
+  const code = forgot.code.trim()
+  if (!email || !code) {
+    ElMessage.warning('请输入邮箱和验证码')
+    return
+  }
+  forgot.verifying = true
+  try {
+    await apis.forgotVerify({ email, code }).send()
+    forgot.step = 2
+    ElMessage.success('身份验证通过，请设置新密码')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '身份验证失败')
+  } finally {
+    forgot.verifying = false
+  }
+}
 const doReset = async () => {
-  if (!forgot.code.trim()) {
-    ElMessage.warning('请输入验证码')
+  if (forgot.step !== 2) {
+    ElMessage.warning('请先完成身份验证')
     return
   }
   if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(forgot.newPassword)) {
     ElMessage.warning('新密码至少 8 位，且含大小写字母和数字')
+    return
+  }
+  if (forgot.newPassword !== forgot.confirmPassword) {
+    ElMessage.warning('两次新密码不一致')
     return
   }
   forgot.saving = true
@@ -379,14 +438,22 @@ const handleRegister = async () => {
       </div>
       <!-- 最近登录账号：点击可切换/快速登录 -->
       <div v-if="isLogin && recentAccounts.length" class="recent-accounts">
-        <button
+        <div
           v-for="acc in recentAccounts"
           :key="acc.uid"
-          type="button"
           class="recent-item"
-          :title="acc.token ? `免密切换到 ${acc.name}` : `使用 ${acc.name} 登录`"
+          :title="acc.refreshToken || acc.token ? `免密切换到 ${acc.name}` : `使用 ${acc.name} 登录`"
           @click="switchTo(acc)"
         >
+          <button
+            type="button"
+            class="recent-delete"
+            :aria-label="`删除 ${acc.name} 的登录记录`"
+            title="删除登录记录"
+            @click.stop="deleteRecentAccount(acc)"
+          >
+            ×
+          </button>
           <img
             class="recent-avatar"
             :src="
@@ -395,7 +462,7 @@ const handleRegister = async () => {
             :alt="acc.name"
           />
           <span class="recent-name">{{ acc.name }}</span>
-        </button>
+        </div>
       </div>
 
       <!-- 登录方式切换：账号密码 / 邮箱验证码 -->
@@ -532,7 +599,7 @@ const handleRegister = async () => {
             v-model="registerForm.password"
             class="input"
             type="password"
-            placeholder="至少 6 位"
+            placeholder="至少 8 位，包含大小写字母和数字"
             autocomplete="new-password"
           />
         </label>
@@ -584,23 +651,49 @@ const handleRegister = async () => {
       </form>
     </div>
 
-    <el-dialog v-model="forgot.show" title="找回密码" width="360px" align-center append-to-body>
+    <el-dialog v-model="forgot.show" title="找回密码" width="380px" align-center append-to-body>
       <div class="forgot-form">
-        <el-input v-model="forgot.email" placeholder="绑定的邮箱" />
-        <div class="forgot-code-row">
-          <el-input v-model="forgot.code" placeholder="验证码" />
-          <el-button :loading="forgot.sending" @click="sendForgotCode">发送验证码</el-button>
+        <div class="security-steps">
+          <span :class="{ active: forgot.step === 1 }">1 验证身份</span>
+          <i>→</i>
+          <span :class="{ active: forgot.step === 2 }">2 设置新密码</span>
         </div>
-        <el-input
-          v-model="forgot.newPassword"
-          type="password"
-          show-password
-          placeholder="新密码（8位+，含大小写和数字）"
-        />
+        <template v-if="forgot.step === 1">
+          <el-input v-model="forgot.email" placeholder="绑定的邮箱" />
+          <div class="forgot-code-row">
+            <el-input v-model="forgot.code" placeholder="验证码" />
+            <el-button :loading="forgot.sending" @click="sendForgotCode">发送验证码</el-button>
+          </div>
+        </template>
+        <template v-else>
+          <el-alert title="身份验证已通过" type="success" :closable="false" show-icon />
+          <el-input
+            v-model="forgot.newPassword"
+            type="password"
+            show-password
+            placeholder="新密码（8位+，含大小写和数字）"
+          />
+          <el-input
+            v-model="forgot.confirmPassword"
+            type="password"
+            show-password
+            placeholder="确认新密码"
+          />
+        </template>
       </div>
       <template #footer>
         <el-button @click="forgot.show = false">取消</el-button>
-        <el-button type="primary" :loading="forgot.saving" @click="doReset">重置密码</el-button>
+        <el-button
+          v-if="forgot.step === 1"
+          type="primary"
+          :loading="forgot.verifying"
+          @click="verifyForgotIdentity"
+        >
+          验证并继续
+        </el-button>
+        <el-button v-else type="primary" :loading="forgot.saving" @click="doReset">
+          重置密码
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -814,6 +907,7 @@ const handleRegister = async () => {
 }
 
 .recent-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -825,6 +919,50 @@ const handleRegister = async () => {
   border: 1px solid #e5edf6;
   border-radius: 10px;
   transition: border-color 0.2s, transform 0.2s;
+}
+
+.recent-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: #8a99ae;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 90%);
+  border: 0;
+  border-radius: 50%;
+}
+
+.recent-delete:hover {
+  color: #fff;
+  background: #f56c6c;
+}
+
+.security-steps {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 4px;
+  font-size: 13px;
+  color: #98a6ba;
+}
+
+.security-steps span.active {
+  font-weight: 700;
+  color: #2f66e8;
+}
+
+.security-steps i {
+  font-style: normal;
+  color: #c8d2df;
 }
 
 .recent-item:hover {

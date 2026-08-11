@@ -7,20 +7,19 @@ import {
   EditPen,
   Lock,
   Message,
-  Edit,
   SwitchButton,
-  Remove,
-  Plus,
+  UserFilled,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useCachedStore } from '@/stores/cached'
 import { useContactStore } from '@/stores/contacts'
-import { SexEnum, IsYetEnum } from '@/enums'
-import type { BadgeType } from '@/services/types'
+import { SexEnum } from '@/enums'
 import apis from '@/services/apis'
 import { judgeClient } from '@/utils/detectDevice'
-import { useRequest } from 'alova'
 import { useModalBackGuard } from '@/hooks/useModalBackGuard'
+import { computedToken } from '@/services/request'
+import { clearAccountScopedStorage } from '@/utils/accountCache'
+import { clearAccountToken, updateAccountSession } from '@/utils/accountManager'
 
 const client = judgeClient()
 const props = defineProps(['modelValue'])
@@ -41,15 +40,7 @@ const contactStore = useContactStore()
 
 const userInfo = computed(() => userStore.userInfo)
 
-const { send: handlerGetBadgeList, data: badgeList } = useRequest(apis.getBadgeList, {
-  initialData: [],
-  immediate: false,
-})
-
 // Stats
-const ownedBadgeCount = computed(
-  () => badgeList.value.filter((b) => b.obtain === IsYetEnum.YES).length,
-)
 const friendCount = computed(() => contactStore.contactsList?.length || 0)
 const joinDays = computed(() => {
   const ct = (userInfo.value as any).createTime
@@ -59,7 +50,6 @@ const joinDays = computed(() => {
 
 watchEffect(() => {
   if (value.value) {
-    handlerGetBadgeList()
     userStore.getUserDetailAction()
     if (!contactStore.contactsList.length) {
       contactStore.getContactList(true).catch(() => {
@@ -69,34 +59,11 @@ watchEffect(() => {
   }
 })
 
-const currentBadge = computed(() =>
-  badgeList.value.find((b) => b.obtain === IsYetEnum.YES && b.wearing === IsYetEnum.YES),
-)
-
 const updateCurrentUserCache = (key: string, val: any) => {
   const uid = userStore.userInfo.uid
   if (uid && cachedStore.userCachedList[uid]) {
     ;(cachedStore.userCachedList[uid] as any)[key] = val
   }
-}
-
-// --- Toggle badge (wear / unwear) ---
-const toggleBadge = async (badge: BadgeType) => {
-  if (!badge?.id || badge.obtain !== IsYetEnum.YES) return
-  // If currently worn, unequip by setting badgeId to 0 or null
-  // The API setUserBadge toggles — let's check the backend
-  await apis.setUserBadge(badge.id).send()
-  handlerGetBadgeList()
-  updateCurrentUserCache('wearingItemId', badge.id)
-}
-
-// --- Remove (unequip) badge ---
-const removeBadge = async () => {
-  // Unequip: set badgeId to 0
-  await apis.setUserBadge(0).send()
-  handlerGetBadgeList()
-  if (userInfo.value.badge) userInfo.value.badge = undefined
-  updateCurrentUserCache('wearingItemId', 0)
 }
 
 // --- Edit name ---
@@ -264,21 +231,40 @@ const onAvatarFileChange = async (e: Event) => {
 // --- Password ---
 const pwdDialog = reactive({
   show: false,
+  step: 1 as 1 | 2,
   oldPassword: '',
   newPassword: '',
   confirmPassword: '',
+  verifying: false,
   saving: false,
 })
 const strongPwd = (p: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(p)
 const openPwdDialog = () => {
+  pwdDialog.step = 1
   pwdDialog.oldPassword = ''
   pwdDialog.newPassword = ''
   pwdDialog.confirmPassword = ''
   pwdDialog.show = true
 }
-const onSavePassword = async () => {
+const verifyPasswordIdentity = async () => {
   if (!pwdDialog.oldPassword) {
-    ElMessage.warning('请输入原密码')
+    ElMessage.warning('请输入当前密码')
+    return
+  }
+  pwdDialog.verifying = true
+  try {
+    await apis.verifyPassword(pwdDialog.oldPassword).send()
+    pwdDialog.step = 2
+    ElMessage.success('身份验证通过，请设置新密码')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '身份验证失败')
+  } finally {
+    pwdDialog.verifying = false
+  }
+}
+const onSavePassword = async () => {
+  if (pwdDialog.step !== 2) {
+    ElMessage.warning('请先完成身份验证')
     return
   }
   if (!strongPwd(pwdDialog.newPassword)) {
@@ -294,8 +280,12 @@ const onSavePassword = async () => {
     await apis
       .modifyPassword({ oldPassword: pwdDialog.oldPassword, newPassword: pwdDialog.newPassword })
       .send()
-    ElMessage.success('密码修改成功')
+    const uid = userStore.userInfo.uid
+    if (uid) clearAccountToken(uid)
+    clearActiveAccount()
+    ElMessage.success('密码修改成功，请重新登录')
     pwdDialog.show = false
+    window.location.replace('/login')
   } catch (e: any) {
     ElMessage.error(e?.message || '修改失败')
   } finally {
@@ -349,6 +339,38 @@ const onBindEmail = async () => {
 }
 
 // --- Logout ---
+const clearActiveAccount = () => {
+  userStore.isSign = false
+  userStore.userInfo = {}
+  localStorage.removeItem('TOKEN')
+  localStorage.removeItem('REFRESH_TOKEN')
+  localStorage.removeItem('USER_INFO')
+  clearAccountScopedStorage()
+  computedToken.clear()
+}
+
+const handleSwitchAccount = async () => {
+  try {
+    await ElMessageBox.confirm('保留当前账号的登录记录并前往账号选择页？', '切换账号', {
+      confirmButtonText: '切换账号',
+      cancelButtonText: '取消',
+      type: 'info',
+    })
+    const uid = userStore.userInfo.uid
+    if (uid && localStorage.getItem('REMEMBER_LOGIN') !== '0') {
+      updateAccountSession(
+        uid,
+        localStorage.getItem('TOKEN'),
+        localStorage.getItem('REFRESH_TOKEN'),
+      )
+    }
+    clearActiveAccount()
+    window.location.replace('/login')
+  } catch {
+    /* cancelled */
+  }
+}
+
 const handleLogout = async () => {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
@@ -356,22 +378,27 @@ const handleLogout = async () => {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await apis
-      .logout(localStorage.getItem('REFRESH_TOKEN') || undefined)
-      .send()
-      .catch(() => undefined)
-    localStorage.removeItem('TOKEN')
-    localStorage.removeItem('REFRESH_TOKEN')
-    localStorage.removeItem('USER_INFO')
-    window.location.reload()
+    const uid = userStore.userInfo.uid
+    const keepQuickLogin = localStorage.getItem('REMEMBER_LOGIN') !== '0'
+    if (uid && keepQuickLogin) {
+      updateAccountSession(
+        uid,
+        localStorage.getItem('TOKEN'),
+        localStorage.getItem('REFRESH_TOKEN'),
+      )
+    }
+    if (!keepQuickLogin) {
+      await apis
+        .logout(localStorage.getItem('REFRESH_TOKEN') || undefined)
+        .send()
+        .catch(() => undefined)
+      if (uid) clearAccountToken(uid)
+    }
+    clearActiveAccount()
+    window.location.replace('/login')
   } catch {
     /* cancelled */
   }
-}
-
-// --- Badge img error ---
-const onBadgeImgError = (e: Event) => {
-  ;(e.target as HTMLElement).style.display = 'none'
 }
 
 // 浏览器“后退”优先关闭弹窗，而不是退出登录/系统
@@ -383,14 +410,13 @@ useModalBackGuard(toRef(emailDialog, 'show'))
 <template>
   <ElDialog
     v-model="value"
-    :width="client === 'PC' ? 520 : '88%'"
+    :width="client === 'PC' ? 680 : '92%'"
     :close-on-click-modal="true"
     center
     class="setting-glass"
   >
     <div class="setting-box">
-      <!-- ===== Header: Avatar + Name + UID ===== -->
-      <div class="profile-header">
+      <section class="profile-hero">
         <div
           class="avatar-wrap"
           :class="{ uploading: uploadingAvatar }"
@@ -417,6 +443,7 @@ useModalBackGuard(toRef(emailDialog, 'show'))
             <IEpFemale v-if="userInfo.sex === SexEnum.MAN" />
             <IEpMale v-if="userInfo.sex === SexEnum.REMALE" />
           </el-icon>
+          <span v-if="!uploadingAvatar" class="avatar-edit"><IEpCamera :size="13" /></span>
         </div>
         <input
           ref="avatarFileInput"
@@ -426,136 +453,72 @@ useModalBackGuard(toRef(emailDialog, 'show'))
           @change="onAvatarFileChange"
         />
 
-        <div class="name-row">
-          <template v-if="!editName.isEdit">
-            <img
-              v-if="currentBadge?.img"
-              class="name-badge"
-              :src="currentBadge.img"
-              @error="onBadgeImgError"
-            />
-            <span class="profile-name">{{ userInfo.name || '-' }}</span>
-            <el-tooltip
-              :content="`剩余改名次数: ${userInfo.modifyNameChance || 0}`"
-              placement="top"
-            >
-              <el-button
-                size="small"
-                :icon="EditPen"
-                circle
-                :disabled="!userInfo?.modifyNameChance || userInfo.modifyNameChance <= 0"
-                @click="onEditName"
-              />
-            </el-tooltip>
-          </template>
-          <template v-else>
-            <ElInput v-model="editName.tempName" maxlength="6" size="small" style="width: 140px" />
-            <el-button
-              size="small"
-              type="primary"
-              :icon="Select"
-              circle
-              :loading="editName.saving"
-              @click="onSaveUserName"
-            />
-            <el-button
-              size="small"
-              type="danger"
-              :icon="CloseBold"
-              circle
-              @click="onCancelEditName"
-            />
-          </template>
+        <div class="profile-copy">
+          <div class="name-row">
+            <template v-if="!editName.isEdit">
+              <span class="profile-name">{{ userInfo.name || '-' }}</span>
+              <el-tooltip :content="`剩余改名次数: ${userInfo.modifyNameChance || 0}`" placement="top">
+                <button class="inline-edit" type="button" :disabled="!userInfo?.modifyNameChance || userInfo.modifyNameChance <= 0" @click="onEditName">
+                  <el-icon><EditPen /></el-icon><span>编辑昵称</span>
+                </button>
+              </el-tooltip>
+            </template>
+            <template v-else>
+              <ElInput v-model="editName.tempName" maxlength="6" size="small" style="width: 160px" />
+              <el-button size="small" type="primary" :icon="Select" circle :loading="editName.saving" @click="onSaveUserName" />
+              <el-button size="small" :icon="CloseBold" circle @click="onCancelEditName" />
+            </template>
+          </div>
+          <div class="identity-row">
+            <span class="profile-uid">HaoChat ID {{ userInfo.uid || '-' }}</span>
+            <span class="identity-dot"></span>
+            <span class="account-state">账号正常</span>
+          </div>
+          <button class="email-line" type="button" @click="openEmailDialog">
+            <el-icon><Message /></el-icon>
+            <span>{{ hasEmail ? userInfo.email : '尚未绑定邮箱' }}</span>
+            <small>{{ hasEmail ? '更换' : '立即绑定' }}</small>
+          </button>
         </div>
-        <div class="profile-uid">HaoChat ID: {{ userInfo.uid || '-' }}</div>
+      </section>
 
-        <!-- Email display -->
-        <div class="email-line" v-if="hasEmail">
-          <span class="email-label">邮箱：</span>
-          <span class="email-value">{{ userInfo.email }}</span>
-          <el-button size="small" text type="primary" @click="openEmailDialog">切换</el-button>
-        </div>
-      </div>
-
-      <!-- ===== Stats ===== -->
       <div class="stats-row">
         <div class="stat-card">
-          <span class="stat-value">{{ joinDays }}</span>
+          <span class="stat-icon blue"><IEpCalendar :size="17" /></span>
+          <div><span class="stat-value">{{ joinDays }}</span>
           <span class="stat-label">加入天数</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value">-</span>
-          <span class="stat-label">消息数</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value">{{ friendCount }}</span>
-          <span class="stat-label">好友数</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value">{{ ownedBadgeCount }}</span>
-          <span class="stat-label">徽章</span>
-        </div>
-      </div>
-
-      <!-- ===== Action buttons ===== -->
-      <div class="action-buttons">
-        <button class="action-btn" @click="openPwdDialog">
-          <el-icon><Lock /></el-icon><span>修改密码</span>
-        </button>
-        <button class="action-btn" @click="openEmailDialog">
-          <el-icon><Message /></el-icon><span>{{ hasEmail ? '切换邮箱' : '绑定邮箱' }}</span>
-        </button>
-        <button class="action-btn" @click="onEditName">
-          <el-icon><Edit /></el-icon><span>编辑资料</span>
-        </button>
-        <button class="action-btn logout" @click="handleLogout">
-          <el-icon><SwitchButton /></el-icon><span>退出登录</span>
-        </button>
-      </div>
-
-      <!-- ===== Badge section ===== -->
-      <div class="badge-section" v-if="badgeList.length">
-        <div class="section-title">
-          我的徽章
-          <el-button
-            v-if="currentBadge"
-            size="small"
-            text
-            type="danger"
-            style="float: right"
-            @click="removeBadge"
-          >
-            <el-icon><Remove /></el-icon> 卸下徽章
-          </el-button>
-        </div>
-        <div class="badge-grid">
-          <div
-            v-for="badge in badgeList"
-            :key="badge.id"
-            class="badge-item"
-            :class="{
-              owned: badge.obtain === IsYetEnum.YES,
-              active: badge.wearing === IsYetEnum.YES,
-            }"
-            @click="toggleBadge(badge)"
-          >
-            <img
-              :src="badge.img"
-              :alt="badge.describe"
-              class="badge-img"
-              :class="{ grayscale: badge.obtain !== IsYetEnum.YES }"
-              @error="onBadgeImgError"
-            />
-            <div class="badge-mask" v-if="badge.obtain === IsYetEnum.YES">
-              <template v-if="badge.wearing === IsYetEnum.YES">
-                <el-icon color="#f56c6c"><Remove /></el-icon>
-              </template>
-              <template v-else>
-                <el-icon color="var(--el-color-primary)"><Plus /></el-icon>
-              </template>
-            </div>
           </div>
         </div>
+        <div class="stat-card">
+          <span class="stat-icon green"><IEpUser :size="17" /></span>
+          <div><span class="stat-value">{{ friendCount }}</span>
+          <span class="stat-label">好友数</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-content">
+        <section class="account-section">
+          <div class="section-title"><div><strong>账号与安全</strong><span>管理登录方式和账号状态</span></div></div>
+          <div class="account-actions">
+            <button type="button" @click="openPwdDialog">
+              <span class="action-icon"><el-icon><Lock /></el-icon></span>
+              <span class="action-copy"><strong>修改密码</strong><small>验证身份后设置新密码</small></span>
+              <IEpArrowRight class="action-arrow" :size="15" />
+            </button>
+            <button type="button" @click="openEmailDialog">
+              <span class="action-icon"><el-icon><Message /></el-icon></span>
+              <span class="action-copy"><strong>{{ hasEmail ? '更换邮箱' : '绑定邮箱' }}</strong><small>用于登录与账号找回</small></span>
+              <IEpArrowRight class="action-arrow" :size="15" />
+            </button>
+            <button type="button" @click="handleSwitchAccount">
+              <span class="action-icon"><el-icon><UserFilled /></el-icon></span>
+              <span class="action-copy"><strong>切换账号</strong><small>保留记录并选择其他账号</small></span>
+              <IEpArrowRight class="action-arrow" :size="15" />
+            </button>
+          </div>
+          <button class="logout-action" type="button" @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出当前账号</button>
+        </section>
       </div>
     </div>
   </ElDialog>
@@ -570,31 +533,53 @@ useModalBackGuard(toRef(emailDialog, 'show'))
     center
   >
     <div class="sub-form">
-      <ElInput
-        v-model="pwdDialog.oldPassword"
-        type="password"
-        show-password
-        placeholder="原密码"
-        autocomplete="current-password"
-      />
-      <ElInput
-        v-model="pwdDialog.newPassword"
-        type="password"
-        show-password
-        placeholder="新密码（8位以上，含大小写字母+数字）"
-        autocomplete="new-password"
-      />
-      <ElInput
-        v-model="pwdDialog.confirmPassword"
-        type="password"
-        show-password
-        placeholder="确认新密码"
-        autocomplete="new-password"
-      />
+      <div class="security-steps">
+        <span :class="{ active: pwdDialog.step === 1 }">1 验证身份</span>
+        <i>→</i>
+        <span :class="{ active: pwdDialog.step === 2 }">2 设置新密码</span>
+      </div>
+      <template v-if="pwdDialog.step === 1">
+        <div class="identity-hint">请输入当前密码以验证账号身份</div>
+        <ElInput
+          v-model="pwdDialog.oldPassword"
+          type="password"
+          show-password
+          placeholder="当前密码"
+          autocomplete="current-password"
+          @keyup.enter="verifyPasswordIdentity"
+        />
+      </template>
+      <template v-else>
+        <el-alert title="身份验证已通过" type="success" :closable="false" show-icon />
+        <ElInput
+          v-model="pwdDialog.newPassword"
+          type="password"
+          show-password
+          placeholder="新密码（8位以上，含大小写字母+数字）"
+          autocomplete="new-password"
+        />
+        <ElInput
+          v-model="pwdDialog.confirmPassword"
+          type="password"
+          show-password
+          placeholder="确认新密码"
+          autocomplete="new-password"
+        />
+      </template>
     </div>
     <template #footer>
       <el-button @click="pwdDialog.show = false">取消</el-button>
-      <el-button type="primary" :loading="pwdDialog.saving" @click="onSavePassword">确认</el-button>
+      <el-button
+        v-if="pwdDialog.step === 1"
+        type="primary"
+        :loading="pwdDialog.verifying"
+        @click="verifyPasswordIdentity"
+      >
+        验证并继续
+      </el-button>
+      <el-button v-else type="primary" :loading="pwdDialog.saving" @click="onSavePassword">
+        修改密码
+      </el-button>
     </template>
   </ElDialog>
 

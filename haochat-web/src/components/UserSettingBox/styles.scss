@@ -1,370 +1,93 @@
-// ==========================================
-//  HaoChat 个人主页 — 浅色毛玻璃弹窗
-//  强制浅色覆盖（与全局 dark 模式解耦）
-// ==========================================
-
-// 弹窗毛玻璃容器 — 强制浅色
 :global(.setting-glass) {
   overflow: hidden;
-  color: #303133;
-
-  // 强制浅色背景
-  background: rgba(255, 255, 255, 95%) !important;
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 60%);
-  border-radius: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 10%), 0 1px 4px rgba(0, 0, 0, 6%) !important;
-  transition: all 0.25s ease;
-
-  // 覆盖 dark 模式的 Element Plus 变量
+  color: #172033;
+  background: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 75%);
+  border-radius: 18px !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 22%) !important;
   --el-bg-color: #fff;
   --el-bg-color-overlay: #fff;
-  --el-text-color-primary: #303133;
-  --el-text-color-regular: #606266;
-  --el-border-color: #dcdfe6;
-  --el-border-color-light: #e4e7ed;
-  --el-fill-color: #f0f2f5;
-  --el-fill-color-light: #f5f7fa;
+  --el-text-color-primary: #172033;
+  --el-text-color-regular: #607089;
+  --el-border-color: #dce3ed;
+  --el-border-color-light: #e8edf4;
+  --el-fill-color: #f1f5f9;
+  --el-fill-color-light: #f8fafc;
 }
 
-// 弹窗遮罩强制浅色
-:global(.setting-glass ~ .el-overlay) {
-  background-color: rgba(0, 0, 0, 30%) !important;
-}
+:global(.setting-glass .el-dialog__header) { height: 0; padding: 0; margin: 0; overflow: visible; }
+:global(.setting-glass .el-dialog__headerbtn) { top: 17px; right: 17px; z-index: 10; width: 34px; height: 34px; font-size: 18px; background: rgba(255,255,255,72%); border-radius: 50%; transition: all .2s ease; }
+:global(.setting-glass .el-dialog__headerbtn:hover) { background: #fff; transform: rotate(6deg); }
+:global(.setting-glass .el-dialog__body) { padding: 0; }
 
-:global(.setting-glass .el-dialog__header) {
-  // 不用 display:none，否则关闭按钮（其DOM子节点）也会被一并隐藏
-  height: 0;
-  padding: 0;
-  margin: 0;
-  overflow: visible;
-}
+.setting-box { display: flex; flex-direction: column; }
+.profile-hero { position: relative; display: flex; gap: 19px; align-items: center; min-height: 126px; padding: 27px 32px 24px; overflow: hidden; background: linear-gradient(118deg, #eef6ff 0%, #f7fbff 55%, #f0f9ff 100%); border-bottom: 1px solid #e3edf8; }
+.profile-hero::after { position: absolute; top: -72px; right: 26px; width: 190px; height: 190px; content: ''; background: radial-gradient(circle, rgba(59,130,246,11%), transparent 68%); border-radius: 50%; }
+.avatar-wrap { position: relative; z-index: 1; flex: 0 0 auto; cursor: pointer; transition: transform .2s ease; }
+.avatar-wrap:hover { transform: translateY(-2px); }
+.avatar-wrap.uploading { pointer-events: none; opacity: .55; }
+.profile-avatar { border: 3px solid #fff; box-shadow: 0 8px 22px rgba(37, 99, 235, 18%); }
+.avatar-mask { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; background: rgba(15,23,42,58%); border-radius: 50%; }
+.avatar-sex { position: absolute; right: -2px; bottom: 2px; z-index: 4; padding: 1px; color: #fff; border: 2px solid #fff; border-radius: 50%; }
+.avatar-edit { position: absolute; right: -3px; bottom: -3px; z-index: 5; display: flex; align-items: center; justify-content: center; width: 25px; height: 25px; color: #fff; background: #3b82f6; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 8px rgba(37,99,235,25%); }
+.profile-copy { position: relative; z-index: 1; flex: 1; min-width: 0; }
+.name-row { display: flex; gap: 8px; align-items: center; min-height: 32px; }
+.profile-name { overflow: hidden; font-size: 22px; font-weight: 750; color: #162033; text-overflow: ellipsis; white-space: nowrap; }
+.inline-edit { display: inline-flex; gap: 4px; align-items: center; padding: 5px 8px; font-size: 10px; color: #5b6b82; cursor: pointer; background: rgba(255,255,255,70%); border: 1px solid rgba(148,163,184,25%); border-radius: 7px; }
+.inline-edit:hover:not(:disabled) { color: #2563eb; border-color: rgba(37,99,235,35%); }
+.inline-edit:disabled { cursor: not-allowed; opacity: .45; }
+.identity-row { display: flex; gap: 7px; align-items: center; margin: 2px 0 9px; }
+.profile-uid { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; color: #7b8aa1; }
+.identity-dot { width: 3px; height: 3px; background: #a9b5c6; border-radius: 50%; }
+.account-state { font-size: 10px; color: #16a34a; }
+.email-line { display: inline-flex; gap: 6px; align-items: center; max-width: 100%; padding: 5px 8px; font-size: 11px; color: #526179; cursor: pointer; background: rgba(255,255,255,67%); border: 1px solid rgba(148,163,184,18%); border-radius: 7px; }
+.email-line > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.email-line small { flex: 0 0 auto; color: #2563eb; }
 
-:global(.setting-glass .el-dialog__headerbtn) {
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-  font-size: 18px;
-  transition: color 0.2s ease, transform 0.2s ease;
+.stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; padding: 16px 32px 0; }
+.stat-card { display: flex; gap: 10px; align-items: center; padding: 11px 13px; background: #fff; border: 1px solid #e7edf4; border-radius: 11px; }
+.stat-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; }
+.stat-icon.blue { color: #2563eb; background: #eff6ff; }
+.stat-icon.green { color: #16a34a; background: #f0fdf4; }
+.stat-card > div { min-width: 0; }
+.stat-value, .stat-label { display: block; }
+.stat-value { margin-bottom: 2px; font-size: 17px; font-weight: 750; line-height: 1; color: #1f2937; }
+.stat-label { font-size: 10px; color: #8491a5; }
 
-  &:hover {
-    transform: scale(1.1);
+.profile-content { padding: 14px 32px 26px; }
+.account-section { min-width: 0; padding: 16px; background: #fff; border: 1px solid #e7edf4; border-radius: 13px; }
+.section-title { display: flex; align-items: flex-start; justify-content: space-between; min-height: 34px; margin-bottom: 12px; }
+.section-title strong, .section-title span { display: block; }
+.section-title strong { margin-bottom: 3px; font-size: 13px; color: #1f2937; }
+.section-title span { font-size: 9px; color: #94a0b2; }
+.account-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.account-actions > button { display: flex; gap: 9px; align-items: center; width: 100%; padding: 8px; color: #334155; text-align: left; cursor: pointer; background: #f8fafc; border: 1px solid transparent; border-radius: 9px; transition: all .18s ease; }
+.account-actions > button:hover { background: #f1f6ff; border-color: #dbeafe; }
+.action-icon { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 30px; height: 30px; color: #3b82f6; background: #eaf3ff; border-radius: 8px; }
+.action-copy { flex: 1; min-width: 0; }
+.action-copy strong, .action-copy small { display: block; }
+.action-copy strong { margin-bottom: 2px; font-size: 11px; }
+.action-copy small { overflow: hidden; font-size: 8px; color: #93a0b3; text-overflow: ellipsis; white-space: nowrap; }
+.action-arrow { flex: 0 0 auto; color: #aab4c2; }
+.logout-action { display: flex; gap: 5px; align-items: center; justify-content: center; width: 100%; padding: 7px; margin-top: 9px; font-size: 10px; color: #dc5555; cursor: pointer; background: #fff7f7; border: 1px solid #fee2e2; border-radius: 8px; }
+.logout-action:hover { background: #fff0f0; border-color: #fecaca; }
 
-    .el-dialog__close {
-      color: var(--el-color-primary);
-    }
-  }
-}
+.sub-form { display: flex; flex-direction: column; gap: 14px; }
+.security-steps { display: flex; gap: 10px; align-items: center; justify-content: center; font-size: 13px; color: #98a6ba; }
+.security-steps span.active { font-weight: 700; color: var(--el-color-primary); }
+.security-steps i { font-style: normal; color: #c8d2df; }
+.identity-hint { font-size: 13px; line-height: 1.6; color: #66758b; }
+.current-email-hint { margin-bottom: 4px; font-size: 13px; color: #606266; }
+.email-row { display: flex; gap: 8px; }
 
-:global(.setting-glass .el-dialog__body) {
-  padding: 28px 32px 24px;
-}
-
-// ==========================================
-// 主容器
-// ==========================================
-.setting-box {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  align-items: center;
-}
-
-// ==========================================
-// 顶部：头像 + 昵称 + ID
-// ==========================================
-.profile-header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-}
-
-.avatar-wrap {
-  position: relative;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-
-  &:hover {
-    transform: scale(1.04);
-  }
-
-  &.uploading {
-    pointer-events: none;
-    opacity: 0.5;
-  }
-}
-
-.profile-avatar {
-  border: 3px solid var(--el-color-primary);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 8%);
-  transition: all 0.2s ease;
-}
-
-.avatar-mask {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: #fff;
-  background: rgba(0, 0, 0, 35%);
-  border-radius: 50%;
-}
-
-.avatar-sex {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
-  padding: 1px;
-  color: #fff;
-  border: 2px solid #fff;
-  border-radius: 50%;
-}
-
-.name-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.name-badge {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-}
-
-.profile-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-.profile-uid {
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-  font-size: 13px;
-  color: #909399;
-  letter-spacing: 0.4px;
-}
-
-.email-line {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  margin-top: 2px;
-  font-size: 13px;
-}
-
-.email-label {
-  color: #909399;
-}
-
-.email-value {
-  font-weight: 500;
-  color: #303133;
-}
-
-.current-email-hint {
-  margin-bottom: 4px;
-  font-size: 13px;
-  color: #606266;
-}
-
-// ==========================================
-// 统计卡片
-// ==========================================
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  width: 100%;
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  padding: 14px 4px 12px;
-  background: rgba(245, 247, 250, 75%);
-  border: 1px solid rgba(228, 231, 237, 55%);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(235, 240, 248, 90%);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 5%);
-    transform: translateY(-2px);
-  }
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--el-color-primary);
-}
-
-.stat-label {
-  font-size: 11px;
-  color: #909399;
-  white-space: nowrap;
-}
-
-// ==========================================
-// 操作按钮行
-// ==========================================
-.action-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  width: 100%;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 4px;
-  font-size: 12px;
-  color: #606266;
-  cursor: pointer;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-
-  .el-icon {
-    font-size: 18px;
-  }
-
-  &:hover {
-    color: var(--el-color-primary);
-    background: rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.04);
-    border-color: var(--el-color-primary);
-  }
-
-  &.logout {
-    &:hover {
-      color: #f56c6c;
-      background: rgba(245, 108, 108, 5%);
-      border-color: #f56c6c;
-    }
-  }
-}
-
-// ==========================================
-// 徽章
-// ==========================================
-.badge-section {
-  width: 100%;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-.badge-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 10px;
-}
-
-.badge-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 1;
-  cursor: default;
-  background: rgba(245, 247, 250, 60%);
-  border: 2px solid transparent;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-
-  &.owned {
-    cursor: pointer;
-
-    &:hover {
-      border-color: #dcdfe6;
-
-      .badge-mask {
-        pointer-events: initial;
-        opacity: 1;
-      }
-    }
-  }
-
-  &.active {
-    border-color: var(--el-color-primary);
-    box-shadow: 0 0 8px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.25);
-  }
-}
-
-.badge-img {
-  width: 58%;
-  height: 58%;
-  object-fit: contain;
-  transition: filter 0.2s ease;
-
-  &.grayscale {
-    filter: grayscale(1);
-    opacity: 0.45;
-  }
-}
-
-.badge-mask {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 85%);
-  border-radius: 50%;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-
-  .el-icon {
-    font-size: 20px;
-  }
-}
-
-// ==========================================
-// 子表单
-// ==========================================
-.sub-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.email-row {
-  display: flex;
-  gap: 8px;
-}
-
-// ==========================================
-// 响应式
-// ==========================================
-@media only screen and (max-width: 480px) {
-  .stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .action-buttons {
-    grid-template-columns: repeat(2, 1fr);
-  }
+@media only screen and (max-width: 600px) {
+  .profile-hero { gap: 14px; padding: 24px 18px 20px; }
+  .profile-avatar { width: 64px !important; height: 64px !important; }
+  .profile-name { font-size: 19px; }
+  .inline-edit span, .account-state, .identity-dot { display: none; }
+  .stats-row { gap: 6px; padding: 12px 18px 0; }
+  .stat-card { gap: 6px; padding: 9px 7px; }
+  .stat-icon { width: 28px; height: 28px; }
+  .profile-content { grid-template-columns: 1fr; padding: 12px 18px 20px; }
+  .account-actions { grid-template-columns: 1fr; }
 }

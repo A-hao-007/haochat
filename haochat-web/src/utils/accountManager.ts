@@ -11,6 +11,8 @@ export type RecentAccount = {
   username?: string
   /** 免密切换用，仅在记住密码时存在 */
   token?: string
+  /** 长期登录用刷新令牌，用于访问令牌过期后的免密切换 */
+  refreshToken?: string
   /** 最近登录时间戳 */
   lastLogin: number
 }
@@ -34,13 +36,36 @@ const save = (list: RecentAccount[]) => {
 /** 登录成功后写入/更新一个账号 */
 export const upsertAccount = (acc: RecentAccount, remember: boolean) => {
   const list = getRecentAccounts().filter((a) => a.uid !== acc.uid)
-  list.unshift({ ...acc, token: remember ? acc.token : undefined, lastLogin: Date.now() })
+  list.unshift({
+    ...acc,
+    token: remember ? acc.token : undefined,
+    refreshToken: remember ? acc.refreshToken : undefined,
+    lastLogin: Date.now(),
+  })
   save(list)
 }
 
 /** 退出登录时清除某账号的 token（仍保留在列表中以便切换时输入密码） */
 export const clearAccountToken = (uid: number) => {
-  const list = getRecentAccounts().map((a) => (a.uid === uid ? { ...a, token: undefined } : a))
+  const list = getRecentAccounts().map((a) =>
+    a.uid === uid ? { ...a, token: undefined, refreshToken: undefined } : a,
+  )
+  save(list)
+}
+
+/** 离开当前账号前，把仍有效的会话同步到对应历史账号，兼容旧版本记录。 */
+export const updateAccountSession = (uid: number, token?: string | null, refreshToken?: string | null) => {
+  if (!uid || (!token && !refreshToken)) return
+  const list = getRecentAccounts().map((account) =>
+    account.uid === uid
+      ? {
+          ...account,
+          token: token || account.token,
+          refreshToken: refreshToken || account.refreshToken,
+          lastLogin: Date.now(),
+        }
+      : account,
+  )
   save(list)
 }
 

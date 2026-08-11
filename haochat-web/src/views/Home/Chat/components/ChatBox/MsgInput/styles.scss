@@ -2,22 +2,24 @@
   box-sizing: border-box;
   display: inline-flex;
   width: 100%;
-  max-height: 100px;
-  padding: 0 12px;
+  max-height: 120px;
+  padding: 0;
   color: var(--font-main);
   cursor: text;
-  background-color: var(--background-2);
-  border: 1px solid transparent;
-  border-radius: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   transition: all 0.1s cubic-bezier(0, 0, 1, 1);
 
   &:focus-within {
-    outline: 1px solid var(--hover-primary);
+    outline: none;
   }
 
   .input {
     flex: 1;
-    padding: 4px 0;
+    min-height: 24px;
+    padding: 8px 0 5px;
+    line-height: 1.55;
     overflow: hidden;
     overflow-y: auto;
     font-size: 14px;
