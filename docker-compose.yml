@@ -76,9 +76,15 @@ services:
   embedding:
     profiles:
       - ai-memory
+    image: haochat-embedding:${HAOCHAT_IMAGE_TAG:-dev}
     build:
       context: .
       dockerfile: deploy/docker/embedding.Dockerfile
+      labels:
+        org.opencontainers.image.title: haochat-embedding
+        org.opencontainers.image.version: ${HAOCHAT_RELEASE_VERSION:-dev}
+        org.opencontainers.image.revision: ${HAOCHAT_GIT_SHA:-unknown}
+        org.opencontainers.image.created: ${HAOCHAT_BUILD_TIME:-unknown}
     container_name: haochat-embedding
     restart: unless-stopped
     environment:
@@ -240,9 +246,15 @@ services:
           memory: 640M
 
   backend:
+    image: haochat-backend:${HAOCHAT_IMAGE_TAG:-dev}
     build:
       context: .
       dockerfile: deploy/docker/backend.Dockerfile
+      labels:
+        org.opencontainers.image.title: haochat-backend
+        org.opencontainers.image.version: ${HAOCHAT_RELEASE_VERSION:-dev}
+        org.opencontainers.image.revision: ${HAOCHAT_GIT_SHA:-unknown}
+        org.opencontainers.image.created: ${HAOCHAT_BUILD_TIME:-unknown}
     container_name: haochat-backend
     restart: unless-stopped
     depends_on:
@@ -341,12 +353,18 @@ services:
           memory: 900M
 
   web:
+    image: haochat-web:${HAOCHAT_IMAGE_TAG:-dev}
     build:
       context: .
       dockerfile: deploy/docker/web.Dockerfile
       args:
         VITE_API_PREFIX: ""
         VITE_WS_URL: ""
+      labels:
+        org.opencontainers.image.title: haochat-web
+        org.opencontainers.image.version: ${HAOCHAT_RELEASE_VERSION:-dev}
+        org.opencontainers.image.revision: ${HAOCHAT_GIT_SHA:-unknown}
+        org.opencontainers.image.created: ${HAOCHAT_BUILD_TIME:-unknown}
     container_name: haochat-web
     restart: unless-stopped
     depends_on:
