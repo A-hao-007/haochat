@@ -9,6 +9,8 @@ import com.ahao.haochat.common.chat.domain.vo.response.ChatMessageResp;
 import com.ahao.haochat.common.chat.service.ChatService;
 import com.ahao.haochat.common.chat.service.adapter.MemberAdapter;
 import com.ahao.haochat.common.chatai.agent.AgentService;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRun;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRunTraceService;
 import com.ahao.haochat.common.chatai.handler.ChatAIHandlerFactory;
 import com.ahao.haochat.common.common.annotation.FrequencyControl;
 import com.ahao.haochat.common.common.domain.vo.response.ApiResult;
@@ -52,6 +54,8 @@ public class ChatController {
     private UserInfoCache userInfoCache;
     @Autowired
     private AgentService agentService;
+    @Autowired
+    private AgentRunTraceService agentRunTraceService;
 
     private Set<String> getBlackUidSet() {
         return userCache.getBlackMap().getOrDefault(BlackTypeEnum.UID.getType(), new HashSet<>());
@@ -153,6 +157,29 @@ public class ChatController {
         Long uid = RequestHolder.get().getUid();
         agentService.stopStream(uid, request.getStreamId());
         return ApiResult.success();
+    }
+
+    @GetMapping("/ai/runs")
+    @ApiOperation("查询当前用户最近的Agent执行记录")
+    public ApiResult<List<AgentRun>> getAgentRuns(
+            @RequestParam(value = "limit", defaultValue = "20") Integer limit) {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(agentRunTraceService.recent(uid, limit == null ? 20 : limit));
+    }
+
+    @GetMapping("/ai/runs/metrics")
+    @ApiOperation("查询当前用户Agent成功率与延迟指标")
+    public ApiResult<Map<String, Object>> getAgentRunMetrics(
+            @RequestParam(value = "days", defaultValue = "7") Integer days) {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(agentRunTraceService.metrics(uid, days == null ? 7 : days));
+    }
+
+    @GetMapping("/ai/runs/{runId}")
+    @ApiOperation("查询当前用户某次Agent执行的完整步骤")
+    public ApiResult<Map<String, Object>> getAgentRunDetail(@PathVariable String runId) {
+        Long uid = RequestHolder.get().getUid();
+        return ApiResult.success(agentRunTraceService.detail(uid, runId));
     }
 }
 

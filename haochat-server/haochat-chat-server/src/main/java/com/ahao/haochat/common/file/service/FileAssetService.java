@@ -20,6 +20,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
@@ -177,13 +178,24 @@ public class FileAssetService {
     }
 
     public String download(Long uid, Long assetId) {
+        FileAsset asset = readable(uid, assetId);
+        return downloadUrl(asset);
+    }
+
+    /** 验证当前用户可读取附件，供语音转写等服务复用同一套房间权限。 */
+    public FileAsset readable(Long uid, Long assetId) {
         FileAsset asset = requireAvailable(assetId);
         FileScene scene = sceneOf(asset);
         boolean allowed = scene.publicRead
                 || Objects.equals(asset.getUid(), uid)
                 || (asset.getRoomId() != null && contactDao.get(uid, asset.getRoomId()) != null);
         AssertUtil.isTrue(allowed, "no permission to access this file");
-        return downloadUrl(asset);
+        return asset;
+    }
+
+    /** 仅在完成权限校验后调用，返回的流由调用方关闭。 */
+    public InputStream openObject(FileAsset asset) {
+        return minio.getObject(asset.getObjectKey());
     }
 
     public String bindAvatar(Long uid, Long assetId) {

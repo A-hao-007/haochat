@@ -37,14 +37,19 @@ public class Neo4jMemoryGraphClient {
             .build();
 
     public void upsert(AiMemory memory, List<String> entities) {
-        if (!properties.isEnabled() || StringUtils.isBlank(properties.getNeo4jPassword())) {
-            return;
+        if (!properties.isEnabled()) {
+            throw new IllegalStateException("AI memory is disabled");
+        }
+        if (StringUtils.isBlank(properties.getNeo4jPassword())) {
+            throw new IllegalStateException("Neo4j password is not configured");
         }
         String cypher = "MERGE (u:AiUser {uid:$uid}) "
                 + "MERGE (m:AiMemory {memoryId:$memoryId}) "
-                + "SET m.roomId=$roomId, m.scope=$scope, m.kind=$kind, m.content=$content, m.importance=$importance "
+                + "SET m.ownerUid=$uid, m.roomId=$roomId, m.scope=$scope, m.kind=$kind, "
+                + "m.content=$content, m.importance=$importance, m.status=1 "
                 + "MERGE (u)-[:OWNS]->(m) "
-                + "WITH m UNWIND $entities AS entity "
+                + "WITH m OPTIONAL MATCH (m)-[old:MENTIONS]->(:AiEntity) DELETE old "
+                + "WITH DISTINCT m UNWIND $entities AS entity "
                 + "MERGE (e:AiEntity {name:entity}) MERGE (m)-[:MENTIONS]->(e)";
         try {
             Map<String, Object> params = new LinkedHashMap<>();
@@ -59,29 +64,53 @@ public class Neo4jMemoryGraphClient {
             execute(cypher, params);
         } catch (Exception e) {
             log.warn("Neo4j memory upsert failed id={}", memory.getId(), e);
+            throw new IllegalStateException("Neo4j memory upsert failed", e);
         }
     }
 
-    public List<String> search(Long uid, Long roomId, int limit) {
+    public List<String> search(Long uid, Long roomId, String query, int limit) {
         if (!properties.isEnabled() || StringUtils.isBlank(properties.getNeo4jPassword())) {
             return List.of();
         }
-        String cypher = "MATCH (u:AiUser {uid:$uid})-[:OWNS]->(m:AiMemory) "
-                + "WHERE m.roomId IS NULL OR m.roomId = $roomId "
-                + "RETURN m.content AS content, m.importance AS importance ORDER BY importance DESC LIMIT $limit";
+        String cypher = "MATCH (owner:AiUser)-[:OWNS]->(seed:AiMemory)-[:MENTIONS]->(entity:AiEntity) "
+                + "WHERE seed.status = 1 AND (owner.uid = $uid OR seed.roomId = $roomId) "
+                + "AND size(entity.name) >= 2 AND toLower($query) CONTAINS toLower(entity.name) "
+                + "WITH DISTINCT entity "
+                + "MATCH (relatedOwner:AiUser)-[:OWNS]->(memory:AiMemory)-[:MENTIONS]->(entity) "
+                + "WHERE memory.status = 1 AND (relatedOwner.uid = $uid OR memory.roomId = $roomId) "
+                + "RETURN DISTINCT memory.content AS content, memory.importance AS importance, entity.name AS entity "
+                + "ORDER BY importance DESC LIMIT $limit";
         try {
-            JsonNode response = execute(cypher, Map.of("uid", uid, "roomId", roomId, "limit", limit));
+            Map<String, Object> parameters = new LinkedHashMap<>();
+            parameters.put("uid", uid);
+            parameters.put("roomId", roomId);
+            parameters.put("query", StringUtils.defaultString(query));
+            parameters.put("limit", limit);
+            JsonNode response = execute(cypher, parameters);
             List<String> facts = new ArrayList<>();
             for (JsonNode row : response.path("results").path(0).path("data")) {
                 String content = row.path("row").path(0).asText();
                 if (StringUtils.isNotBlank(content)) {
-                    facts.add(content);
+                    String entity = row.path("row").path(2).asText();
+                    facts.add(StringUtils.isBlank(entity) ? content : "[关联实体:" + entity + "] " + content);
                 }
             }
             return facts;
         } catch (Exception e) {
             log.warn("Neo4j memory search failed uid={} roomId={}", uid, roomId, e);
             return List.of();
+        }
+    }
+
+    public boolean health() {
+        if (StringUtils.isBlank(properties.getNeo4jPassword())) {
+            return false;
+        }
+        try {
+            execute("RETURN 1 AS ok", Map.of());
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 

@@ -126,6 +126,16 @@ public class EmailAuthService {
         log.info("forgot password reset success: email={}, uid={}", email, user.getId());
     }
 
+    /** 找回密码第一步：只验证邮箱验证码，不提前修改密码或消费验证码。 */
+    public void verifyForgotCode(String email, String code) {
+        checkEmailFormat(email);
+        verifyCode(codeKey("forgot", email), code);
+        User user = userDao.getByEmail(email);
+        if (user == null || (user.getStatus() != null && user.getStatus() == 1)) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+    }
+
     private void sendCode(String key, String email) {
         String code = RandomUtil.randomNumbers(6);
         Boolean cached = RedisUtils.set(key, code, CODE_TTL_MINUTES, TimeUnit.MINUTES);

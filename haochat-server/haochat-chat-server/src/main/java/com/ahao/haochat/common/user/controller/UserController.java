@@ -112,6 +112,14 @@ public class UserController {
         return ApiResult.success();
     }
 
+    @PostMapping("/password/verify")
+    @FrequencyControl(time = 60, count = 5, target = FrequencyControl.Target.UID)
+    @ApiOperation("修改密码前验证当前密码")
+    public ApiResult<Void> verifyPassword(@Valid @RequestBody VerifyPasswordReq req) {
+        userService.verifyPassword(RequestHolder.get().getUid(), req.getPassword());
+        return ApiResult.success();
+    }
+
     @PostMapping("/email/code")
     @FrequencyControl(time = 60, count = 3, target = FrequencyControl.Target.UID)
     @ApiOperation("发送绑定邮箱验证码")

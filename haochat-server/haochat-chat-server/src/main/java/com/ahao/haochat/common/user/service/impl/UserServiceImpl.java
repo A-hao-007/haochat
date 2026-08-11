@@ -80,6 +80,13 @@ public class UserServiceImpl implements UserService {
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     @Override
+    public void verifyPassword(Long uid, String password) {
+        User user = userDao.getById(uid);
+        AssertUtil.isNotEmpty(user, "用户不存在");
+        AssertUtil.isTrue(PASSWORD_ENCODER.matches(password, user.getPassword()), "当前密码错误");
+    }
+
+    @Override
     public void modifyPassword(Long uid, ModifyPasswordReq req) {
         User user = userDao.getById(uid);
         AssertUtil.isNotEmpty(user, "用户不存在");
@@ -145,6 +152,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public void register(User user) {
         userDao.save(user);
+        userCache.userInfoChange(user.getId());
         applicationEventPublisher.publishEvent(new UserRegisterEvent(this, user));
     }
 
@@ -195,7 +203,9 @@ public class UserServiceImpl implements UserService {
         for (int i = 0; i < reqList.size(); i++) {
             SummeryInfoReq.infoReq infoReq = reqList.get(i);
             Long modifyTime = userModifyTime.get(i);
-            if (Objects.isNull(infoReq.getLastModifyTime()) || (Objects.nonNull(modifyTime) && modifyTime > infoReq.getLastModifyTime())) {
+            if (Objects.isNull(infoReq.getLastModifyTime())
+                    || Objects.isNull(modifyTime)
+                    || modifyTime > infoReq.getLastModifyTime()) {
                 needSyncUidList.add(infoReq.getUid());
             }
         }
@@ -233,5 +243,6 @@ public class UserServiceImpl implements UserService {
         update.setId(uid);
         update.setAvatar(avatar);
         userDao.updateById(update);
+        userCache.userInfoChange(uid);
     }
 }

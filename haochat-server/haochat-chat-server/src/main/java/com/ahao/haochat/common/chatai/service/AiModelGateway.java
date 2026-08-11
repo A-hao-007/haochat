@@ -64,6 +64,18 @@ public class AiModelGateway {
         throw failure == null ? new IllegalStateException("No AI provider configured") : failure;
     }
 
+    public boolean embeddingConfigured() {
+        return configured(providerProperties.getEmbedding());
+    }
+
+    public boolean embeddingHealthy(String embeddingModel) {
+        try {
+            return !embed("HaoChat embedding health check", embeddingModel).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private String chat(AiProviderProperties.Provider provider, String systemPrompt, String userPrompt) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", provider.getModel());

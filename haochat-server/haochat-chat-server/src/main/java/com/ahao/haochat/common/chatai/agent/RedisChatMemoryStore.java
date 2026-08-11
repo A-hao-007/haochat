@@ -77,7 +77,12 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
     }
 
     private String key(Object memoryId) {
-        return RedisKey.getKey(RedisKey.AI_CONTEXT_STRING, memoryId);
+        // Runtime memoryId is "roomId:uid:runId" so tools can correlate their trace.
+        // Persist only by roomId:uid to keep short-term memory continuous across runs.
+        String raw = String.valueOf(memoryId);
+        String[] parts = raw.split(":", 3);
+        String conversationId = parts.length >= 2 ? parts[0] + ":" + parts[1] : raw;
+        return RedisKey.getKey(RedisKey.AI_CONTEXT_STRING, conversationId);
     }
 
     private ObjectNode toNode(ChatMessage m) {

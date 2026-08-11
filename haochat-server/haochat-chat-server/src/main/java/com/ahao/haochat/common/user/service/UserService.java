@@ -27,6 +27,9 @@ public interface UserService {
      */
     UserInfoResp getUserInfo(Long uid);
 
+    /** 修改密码前验证当前身份。 */
+    void verifyPassword(Long uid, String password);
+
     /**
      * 修改用户名
      *

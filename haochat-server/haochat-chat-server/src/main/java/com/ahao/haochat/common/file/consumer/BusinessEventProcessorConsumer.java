@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -109,20 +110,22 @@ public class BusinessEventProcessorConsumer implements RocketMQListener<MQBusine
             return;
         }
         AgentTask task = agentTaskDao.getById(taskId);
-        if (task == null || !agentTaskDao.claimDue(taskId, new Date())) {
+        String leaseToken = UUID.randomUUID().toString();
+        if (task == null || !agentTaskDao.claimDue(taskId, new Date(), leaseToken)) {
             return;
         }
+        task.setLeaseToken(leaseToken);
         Map<String, TaskExecutor> executorMap = taskExecutors.stream()
                 .collect(Collectors.toMap(TaskExecutor::taskType, Function.identity(), (left, right) -> left));
         TaskExecutor executor = executorMap.get(task.getTaskType());
         if (executor == null) {
-            agentTaskDao.markFailed(taskId);
+            agentTaskDao.markFailed(taskId, leaseToken, null);
             return;
         }
         try {
             executor.execute(task);
         } catch (Exception e) {
-            agentTaskDao.markFailed(taskId);
+            agentTaskDao.markFailed(taskId, leaseToken, e);
             throw e;
         }
     }

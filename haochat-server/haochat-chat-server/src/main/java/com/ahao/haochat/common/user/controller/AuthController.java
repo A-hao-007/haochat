@@ -98,6 +98,13 @@ public class AuthController {
         return ApiResult.success();
     }
 
+    @PostMapping("/password/forgot/verify")
+    @FrequencyControl(time = 60, count = 5, target = FrequencyControl.Target.IP)
+    public ApiResult<Void> forgotVerify(@Valid @RequestBody EmailCodeLoginReq req) {
+        emailAuthService.verifyForgotCode(req.getEmail(), req.getCode());
+        return ApiResult.success();
+    }
+
     @PostMapping("/token/refresh")
     @FrequencyControl(time = 60, count = 20, target = FrequencyControl.Target.IP)
     public ApiResult<AuthTokenResp> refresh(@Valid @RequestBody RefreshTokenReq req) {

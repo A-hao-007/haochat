@@ -45,6 +45,12 @@ public class CreateReminderTool extends AbstractMcpTool {
     }
 
     @Override
+    public boolean isReadOnly() {
+        // Creating a reminder writes agent_task; retrying blindly could create duplicates.
+        return false;
+    }
+
+    @Override
     public String execute(Map<String, Object> args) {
         Long callerUid = longVal(args.get("_callerUid"));
         Long roomId = longVal(args.get("_roomId"));

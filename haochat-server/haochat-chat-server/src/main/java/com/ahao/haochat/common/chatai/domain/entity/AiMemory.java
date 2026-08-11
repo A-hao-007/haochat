@@ -31,6 +31,18 @@ public class AiMemory implements Serializable {
     private String content;
     private Integer importance;
     private Integer status;
+    @TableField("entities_json")
+    private String entitiesJson;
+    @TableField("sync_status")
+    private String syncStatus;
+    @TableField("retry_count")
+    private Integer retryCount;
+    @TableField("last_error")
+    private String lastError;
+    @TableField("next_retry_time")
+    private Date nextRetryTime;
+    @TableField("synced_time")
+    private Date syncedTime;
     @TableField("create_time")
     private Date createTime;
     @TableField("update_time")

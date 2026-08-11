@@ -36,8 +36,11 @@ public class QdrantMemoryClient {
             .build();
 
     public void upsert(AiMemory memory, List<Float> vector) {
-        if (!properties.isEnabled() || vector.isEmpty()) {
-            return;
+        if (!properties.isEnabled()) {
+            throw new IllegalStateException("AI memory is disabled");
+        }
+        if (vector == null || vector.isEmpty()) {
+            throw new IllegalArgumentException("Embedding vector is empty");
         }
         try {
             ensureCollection(vector.size());
@@ -50,6 +53,7 @@ public class QdrantMemoryClient {
             payload.put("kind", memory.getKind());
             payload.put("content", memory.getContent());
             payload.put("importance", memory.getImportance());
+            payload.put("status", memory.getStatus());
             Map<String, Object> point = new LinkedHashMap<>();
             point.put("id", memory.getId());
             point.put("vector", vector);
@@ -59,23 +63,31 @@ public class QdrantMemoryClient {
             request("PUT", "/collections/" + properties.getQdrantCollection() + "/points?wait=true", body);
         } catch (Exception e) {
             log.warn("Qdrant memory upsert failed id={}", memory.getId(), e);
+            throw new IllegalStateException("Qdrant memory upsert failed", e);
         }
     }
 
     public List<MemoryHit> searchByUid(Long uid, List<Float> vector, int limit) {
-        return search("uid", uid, vector, limit);
+        return search(Map.of("uid", uid, "scope", "USER", "status", 1), vector, limit);
     }
 
     public List<MemoryHit> searchByRoom(Long roomId, List<Float> vector, int limit) {
-        return search("roomId", roomId, vector, limit);
+        if (roomId == null) {
+            return List.of();
+        }
+        return search(Map.of("roomId", roomId, "scope", "ROOM", "status", 1), vector, limit);
     }
 
-    private List<MemoryHit> search(String key, Long value, List<Float> vector, int limit) {
-        if (!properties.isEnabled() || vector.isEmpty() || value == null) {
+    private List<MemoryHit> search(Map<String, Object> matches, List<Float> vector, int limit) {
+        if (!properties.isEnabled() || vector.isEmpty() || matches.isEmpty()) {
             return List.of();
         }
         try {
-            Map<String, Object> filter = Map.of("must", List.of(Map.of("key", key, "match", Map.of("value", value))));
+            List<Map<String, Object>> must = new ArrayList<>();
+            for (Map.Entry<String, Object> entry : matches.entrySet()) {
+                must.add(Map.of("key", entry.getKey(), "match", Map.of("value", entry.getValue())));
+            }
+            Map<String, Object> filter = Map.of("must", must);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("vector", vector);
             body.put("limit", limit);
@@ -92,8 +104,17 @@ public class QdrantMemoryClient {
             }
             return result;
         } catch (Exception e) {
-            log.warn("Qdrant memory search failed by {}={}", key, value, e);
-            return List.of();
+            log.warn("Qdrant memory search failed filters={}", matches.keySet(), e);
+            throw new IllegalStateException("Qdrant memory search failed", e);
+        }
+    }
+
+    public boolean health() {
+        Request request = new Request.Builder().url(url("/healthz")).get().build();
+        try (Response response = client.newCall(request).execute()) {
+            return response.isSuccessful();
+        } catch (Exception e) {
+            return false;
         }
     }
 

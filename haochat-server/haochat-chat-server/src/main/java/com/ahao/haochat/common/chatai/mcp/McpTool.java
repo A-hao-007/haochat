@@ -27,4 +27,19 @@ public interface McpTool {
     default boolean needsConfirmation() {
         return false;
     }
+
+    /** Whether executing the tool is free of business side effects. */
+    default boolean isReadOnly() {
+        return !needsConfirmation();
+    }
+
+    /** Per-attempt timeout enforced by the Agent execution layer. */
+    default int timeoutSeconds() {
+        return 8;
+    }
+
+    /** Only read-only operations are retried automatically. */
+    default int maxAttempts() {
+        return isReadOnly() ? 2 : 1;
+    }
 }

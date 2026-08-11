@@ -12,7 +12,12 @@ public class AiMemoryProperties {
     private boolean enabled;
     private boolean queryRewriteEnabled = true;
     private String embeddingModel = "text-embedding-3-small";
+    private String embeddingQueryPrefix = "";
+    private String embeddingDocumentPrefix = "";
     private int topK = 6;
+    private int syncBatchSize = 20;
+    private int maxSyncRetries = 12;
+    private long syncRetryDelaySeconds = 60;
     private String qdrantUrl = "http://qdrant:6333";
     private String qdrantCollection = "haochat_memory";
     private String neo4jUrl = "http://neo4j:7474";

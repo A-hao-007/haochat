@@ -37,8 +37,7 @@ public class AiMemoryExtractionService {
     private final AiMemoryDao memoryDao;
     private final AiModelGateway modelGateway;
     private final AiPromptService promptService;
-    private final QdrantMemoryClient qdrantMemoryClient;
-    private final Neo4jMemoryGraphClient graphClient;
+    private final AiMemorySyncService memorySyncService;
 
     @Async(ThreadPoolConfig.AICHAT_EXECUTOR)
     public void capture(Message message) {
@@ -59,12 +58,14 @@ public class AiMemoryExtractionService {
                     .content(StringUtils.abbreviate(candidate.content.trim(), 2000))
                     .importance(candidate.importance)
                     .status(1)
+                    .entitiesJson(MAPPER.writeValueAsString(candidate.entities))
+                    .syncStatus(AiMemorySyncService.PENDING)
+                    .retryCount(0)
+                    .nextRetryTime(new Date())
                     .createTime(new Date())
                     .build();
             memoryDao.save(memory);
-            List<Float> vector = modelGateway.embed(memory.getContent(), properties.getEmbeddingModel());
-            qdrantMemoryClient.upsert(memory, vector);
-            graphClient.upsert(memory, candidate.entities);
+            memorySyncService.syncNow(memory.getId());
         } catch (Exception e) {
             log.warn("AI memory extraction failed msgId={}", message.getId(), e);
         }

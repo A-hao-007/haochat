@@ -1,8 +1,14 @@
 package com.ahao.haochat.common.chatai.agent;
 
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRunTraceService;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentStepStatus;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentStepType;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentToolExecutionService;
 import com.ahao.haochat.common.chatai.mcp.McpClient;
 import com.ahao.haochat.common.chatai.mcp.McpTool;
 import com.ahao.haochat.common.chatai.mcp.McpToolRegistry;
+import com.ahao.haochat.common.common.constant.RedisKey;
+import com.ahao.haochat.common.common.utils.RedisUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -19,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 桥接现有 McpToolRegistry（本地工具）+ McpClient（外部MCP工具）到 LangChain4j 的 ToolProvider 协议。
@@ -37,6 +44,10 @@ public class McpToolProvider implements ToolProvider {
     private McpClient mcpClient;
     @Autowired
     private PendingConfirmStore pendingConfirmStore;
+    @Autowired
+    private AgentRunTraceService traceService;
+    @Autowired
+    private AgentToolExecutionService executionService;
 
     @Override
     public ToolProviderResult provideTools(ToolProviderRequest request) {
@@ -58,18 +69,31 @@ public class McpToolProvider implements ToolProvider {
 
     private ToolExecutor localExecutor(McpTool tool) {
         return (ToolExecutionRequest execRequest, Object memoryId) -> {
+            String runId = parseRunId(memoryId);
+            long started = System.currentTimeMillis();
+            String stepId = traceService.beginStep(runId, AgentStepType.TOOL, tool.name(), execRequest.arguments());
+            traceService.incrementToolCalls(runId);
             Map<String, Object> rawArgs = parseArgs(execRequest.arguments());
             if (tool.needsConfirmation()) {
-                return proposeForConfirmation(tool, rawArgs, memoryId, execRequest.arguments());
+                String result = proposeForConfirmation(tool, rawArgs, memoryId, execRequest.arguments());
+                traceService.finishStep(stepId, AgentStepStatus.WAITING_CONFIRMATION, result, 1,
+                        elapsed(started), null, null);
+                return result;
             }
             Map<String, Object> args = new HashMap<>(rawArgs);
             injectContext(args, memoryId);
-            try {
-                return tool.execute(args);
-            } catch (Exception e) {
-                log.warn("本地MCP工具 {} 执行失败", tool.name(), e);
-                return "工具执行失败: " + e.getMessage();
+            if (!tool.isReadOnly() && !claimToolCall(runId, execRequest.id())) {
+                String duplicate = "该工具调用已经处理过，不会重复执行";
+                traceService.finishStep(stepId, AgentStepStatus.SUCCEEDED, duplicate, 1,
+                        elapsed(started), "DUPLICATE_SUPPRESSED", null);
+                return duplicate;
             }
+            AgentToolExecutionService.Result result = executionService.executeLocal(tool, args);
+            traceService.finishStep(stepId,
+                    result.isSuccess() ? AgentStepStatus.SUCCEEDED : AgentStepStatus.FAILED,
+                    result.getOutput(), result.getAttempts(), result.getLatencyMs(),
+                    result.getErrorCode(), result.getErrorMessage());
+            return result.userText();
         };
     }
 
@@ -87,20 +111,24 @@ public class McpToolProvider implements ToolProvider {
                 .reduce((a, b) -> a + "，" + b).orElse("");
         String summary = tool.description() + "（" + argsDisplay + "）";
         pendingConfirmStore.save(roomIdUid[0], roomIdUid[1],
-                new PendingConfirmation(tool.name(), argsJson, summary));
+                new PendingConfirmation(parseRunId(memoryId), tool.name(), argsJson, summary));
         return "【需要你确认】即将执行：" + summary + "。请回复\"确认\"执行，或回复\"取消\"放弃（5分钟内有效）。";
     }
 
     private ToolExecutor remoteExecutor(String name) {
         return (ToolExecutionRequest execRequest, Object memoryId) -> {
+            String runId = parseRunId(memoryId);
+            String stepId = traceService.beginStep(runId, AgentStepType.TOOL, name, execRequest.arguments());
+            traceService.incrementToolCalls(runId);
             Map<String, Object> args = parseArgs(execRequest.arguments());
             injectContext(args, memoryId);
-            try {
-                return mcpClient.callRemote(name, args);
-            } catch (Exception e) {
-                log.warn("外部MCP工具 {} 执行失败", name, e);
-                return "工具执行失败: " + e.getMessage();
-            }
+            AgentToolExecutionService.Result result = executionService.executeRemote(name,
+                    () -> mcpClient.callRemote(name, args));
+            traceService.finishStep(stepId,
+                    result.isSuccess() ? AgentStepStatus.SUCCEEDED : AgentStepStatus.FAILED,
+                    result.getOutput(), result.getAttempts(), result.getLatencyMs(),
+                    result.getErrorCode(), result.getErrorMessage());
+            return result.userText();
         };
     }
 
@@ -114,7 +142,7 @@ public class McpToolProvider implements ToolProvider {
         }
     }
 
-    /** memoryId 格式为 "roomId:uid"，由 AgentService 组装；解析失败时不注入，工具自身会报"缺少会话上下文" */
+    /** memoryId 格式为 "roomId:uid:runId"，解析失败时工具自身会报"缺少会话上下文"。 */
     private void injectContext(Map<String, Object> args, Object memoryId) {
         long[] roomIdUid = parseMemoryId(memoryId);
         if (roomIdUid != null) {
@@ -127,8 +155,8 @@ public class McpToolProvider implements ToolProvider {
         if (memoryId == null) {
             return null;
         }
-        String[] parts = String.valueOf(memoryId).split(":", 2);
-        if (parts.length != 2) {
+        String[] parts = String.valueOf(memoryId).split(":", 3);
+        if (parts.length < 2) {
             return null;
         }
         try {
@@ -136,6 +164,29 @@ public class McpToolProvider implements ToolProvider {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private String parseRunId(Object memoryId) {
+        if (memoryId == null) return null;
+        String[] parts = String.valueOf(memoryId).split(":", 3);
+        return parts.length == 3 ? parts[2] : null;
+    }
+
+    private boolean claimToolCall(String runId, String toolCallId) {
+        if (runId == null || toolCallId == null || toolCallId.isBlank()) {
+            return true;
+        }
+        Boolean created = RedisUtils.setIfAbsent(
+                RedisKey.join("agent", "tool", "idempotency", runId, toolCallId),
+                "1", 1, TimeUnit.DAYS);
+        // Redis degradation should not make the tool permanently unavailable; the durable
+        // request-id guard still prevents duplicate Agent runs for the same chat message.
+        return created == null || created;
+    }
+
+    private int elapsed(long started) {
+        long value = System.currentTimeMillis() - started;
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
     }
 
     /** 把现有 McpTool.inputSchema() 的原始 JSON Schema（Map）转换成 LangChain4j 的 JsonObjectSchema */

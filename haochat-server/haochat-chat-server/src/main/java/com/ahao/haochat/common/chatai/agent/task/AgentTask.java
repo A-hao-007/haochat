@@ -62,6 +62,20 @@ public class AgentTask implements Serializable {
     @TableField("max_run_count")
     private Integer maxRunCount;
 
+    /** Lease used to recover tasks when a consumer crashes after claiming them. */
+    @TableField("lease_until")
+    private Date leaseUntil;
+
+    /** Fencing token: stale consumers cannot complete a lease reclaimed by another worker. */
+    @TableField("lease_token")
+    private String leaseToken;
+
+    @TableField("retry_count")
+    private Integer retryCount;
+
+    @TableField("last_error")
+    private String lastError;
+
     @TableField("create_time")
     private Date createTime;
 

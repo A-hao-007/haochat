@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
@@ -36,6 +37,7 @@ public class ReminderTaskExecutor implements TaskExecutor {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void execute(AgentTask task) {
         String content;
         try {
@@ -53,11 +55,10 @@ public class ReminderTaskExecutor implements TaskExecutor {
         req.setBody(body);
         chatService.sendMsg(req, props.getUid());
 
-        AgentTask update = new AgentTask();
-        update.setId(task.getId());
-        update.setStatus(AgentTaskStatus.DONE);
-        update.setLastRunTime(new Date());
-        update.setRunCount((task.getRunCount() == null ? 0 : task.getRunCount()) + 1);
-        agentTaskDao.updateById(update);
+        // Message insert and task completion share the same transaction. A stale consumer
+        // cannot commit because the fencing token no longer matches; its message rolls back.
+        if (!agentTaskDao.markDone(task.getId(), task.getLeaseToken())) {
+            throw new IllegalStateException("任务租约已失效，拒绝提交提醒消息");
+        }
     }
 }

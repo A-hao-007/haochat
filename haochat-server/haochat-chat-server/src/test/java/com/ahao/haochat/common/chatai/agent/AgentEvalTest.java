@@ -3,7 +3,12 @@ package com.ahao.haochat.common.chatai.agent;
 import com.ahao.haochat.common.chat.domain.entity.Message;
 import com.ahao.haochat.common.chatai.log.AiCallLog;
 import com.ahao.haochat.common.chatai.log.AiCallLogDao;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRun;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRunStatus;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRunTraceService;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +31,7 @@ import java.util.List;
 @Slf4j
 @SpringBootTest
 @RunWith(SpringRunner.class)
+@Ignore("需要真实模型、测试账号和测试房间；通过 IDE 或 Maven 显式移除 Ignore 后运行")
 public class AgentEvalTest {
 
     /** 触发消息的发送者 uid，需替换为测试环境真实存在的账号 */
@@ -37,6 +43,8 @@ public class AgentEvalTest {
     private AgentService agentService;
     @Autowired
     private AiCallLogDao aiCallLogDao;
+    @Autowired
+    private AgentRunTraceService traceService;
 
     private static class EvalCase {
         final String input;
@@ -70,15 +78,20 @@ public class AgentEvalTest {
         int total = CASES.size();
         int passed = 0;
         List<String> failures = new ArrayList<>();
+        int caseIndex = 0;
         for (EvalCase c : CASES) {
+            long messageId = System.currentTimeMillis() * 100 + caseIndex++;
             Message msg = Message.builder()
+                    .id(messageId)
                     .fromUid(TEST_UID)
                     .roomId(TEST_ROOM_ID)
                     .content(c.input)
                     .build();
             String reply;
             try {
-                reply = agentService.run(msg);
+                agentService.run(msg);
+                AgentRun run = awaitRun("message:" + messageId, 60_000L);
+                reply = run == null ? null : run.getFinalReply();
             } catch (Exception e) {
                 log.warn("[FAIL] input={} 抛出异常", c.input, e);
                 failures.add(c.input + " -> 异常: " + e.getMessage());
@@ -102,6 +115,22 @@ public class AgentEvalTest {
         if (!failures.isEmpty()) {
             log.warn("失败用例:\n{}", String.join("\n", failures));
         }
+        Assert.assertEquals("Agent E2E评测存在失败用例: " + failures, total, passed);
+    }
+
+    private AgentRun awaitRun(String requestId, long timeoutMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            AgentRun run = traceService.lambdaQuery().eq(AgentRun::getRequestId, requestId).one();
+            if (run != null && (AgentRunStatus.SUCCEEDED.equals(run.getStatus())
+                    || AgentRunStatus.FAILED.equals(run.getStatus())
+                    || AgentRunStatus.CANCELLED.equals(run.getStatus())
+                    || AgentRunStatus.WAITING_CONFIRMATION.equals(run.getStatus()))) {
+                return run;
+            }
+            Thread.sleep(200L);
+        }
+        return null;
     }
 
     /** 查这个 uid+roomId 最近一条调用日志，确认是否命中了期望的工具 */

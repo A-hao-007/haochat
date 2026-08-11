@@ -10,10 +10,16 @@ import com.ahao.haochat.common.chat.domain.vo.request.msg.TextMsgReq;
 import com.ahao.haochat.common.chat.service.ChatService;
 import com.ahao.haochat.common.chatai.log.AiCallLog;
 import com.ahao.haochat.common.chatai.log.AiCallLogDao;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentRunTraceService;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentConversationGuard;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentStepStatus;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentStepType;
+import com.ahao.haochat.common.chatai.agent.runtime.AgentToolExecutionService;
 import com.ahao.haochat.common.chatai.mcp.McpTool;
 import com.ahao.haochat.common.chatai.mcp.McpToolRegistry;
 import com.ahao.haochat.common.chatai.properties.AiPromptProperties;
 import com.ahao.haochat.common.chatai.memory.AiLongTermMemoryService;
+import com.ahao.haochat.common.chatai.memory.MemoryEnrichmentResult;
 import com.ahao.haochat.common.chatai.properties.AiProviderProperties;
 import com.ahao.haochat.common.chatai.service.AiModelGateway;
 import com.ahao.haochat.common.chatai.service.AiPromptService;
@@ -111,6 +117,12 @@ public class AgentService {
     private AiModelGateway modelGateway;
     @Autowired
     private AiPromptService promptService;
+    @Autowired
+    private AgentRunTraceService traceService;
+    @Autowired
+    private AgentToolExecutionService toolExecutionService;
+    @Autowired
+    private AgentConversationGuard conversationGuard;
 
     private static final Set<String> CONFIRM_WORDS = Set.of("确认", "是", "发布", "ok", "OK", "好的", "同意", "确定");
     private static final Set<String> CANCEL_WORDS = Set.of("取消", "算了", "不要", "cancel", "Cancel");
@@ -215,7 +227,25 @@ public class AgentService {
             // 三个分支都没命中：视为用户放弃了待确认动作，pending已清除，继续走正常流程处理这句新消息
         }
 
-        runStreaming(triggerMsg, callerUid, roomId);
+        AiProviderProperties.Provider provider = primaryProvider();
+        String requestId = triggerMsg.getId() == null
+                ? "generated:" + UUID.randomUUID()
+                : "message:" + triggerMsg.getId();
+        AgentRunTraceService.StartResult run = traceService.start(requestId, callerUid, roomId,
+                triggerMsg.getContent(), provider == null ? null : provider.getBaseUrl(),
+                provider == null ? null : provider.getModel());
+        if (!run.isCreated()) {
+            log.info("忽略重复Agent请求 requestId={} runId={}", requestId, run.getRunId());
+            return null;
+        }
+        String guardToken = UUID.randomUUID().toString();
+        if (!conversationGuard.acquire(roomId, callerUid, guardToken)) {
+            String busy = "上一条请求还在处理中，请稍后再试~";
+            sendReply(roomId, triggerMsg, busy, false);
+            traceService.cancel(run.getRunId(), busy, 0);
+            return null;
+        }
+        runStreaming(triggerMsg, callerUid, roomId, run.getRunId(), guardToken);
         return null;
     }
 
@@ -238,16 +268,21 @@ public class AgentService {
         return true;
     }
 
-    private void cleanupStream(String streamId) {
+    private void cleanupStream(String streamId, Long roomId, Long uid, String guardToken) {
         activeStreams.remove(streamId);
         stoppedStreams.remove(streamId);
+        try {
+            conversationGuard.release(roomId, uid, guardToken);
+        } catch (Exception e) {
+            log.warn("释放Agent会话锁失败 roomId={} uid={}", roomId, uid, e);
+        }
     }
 
     /** 正常对话主路径：注册流式回调后触发，不阻塞调用线程 */
-    private void runStreaming(Message triggerMsg, Long callerUid, Long roomId) {
+    private void runStreaming(Message triggerMsg, Long callerUid, Long roomId, String runId, String guardToken) {
         long start = System.currentTimeMillis();
         String senderName = resolveSenderName(callerUid);
-        String memoryId = memoryId(roomId, callerUid);
+        String memoryId = memoryId(roomId, callerUid, runId);
         String streamId = UUID.randomUUID().toString();
         String prefix = "@" + senderName + " ";
 
@@ -255,31 +290,70 @@ public class AgentService {
         StringBuilder fullText = new StringBuilder();
         List<String> toolCallNames = new CopyOnWriteArrayList<>();
         AtomicBoolean needsConfirmationFlag = new AtomicBoolean(false);
+        AtomicBoolean firstTokenRecorded = new AtomicBoolean(false);
         // complete/error/用户停止 三个收尾路径互斥，保证只落库一次
         AtomicBoolean finalized = new AtomicBoolean(false);
 
+        String userMessage;
+        long retrievalStarted = System.currentTimeMillis();
+        String retrievalStepId = traceService.beginStep(runId, AgentStepType.RETRIEVAL,
+                "QUERY_REWRITE_AND_HYBRID_RETRIEVAL", triggerMsg.getContent());
+        try {
+            MemoryEnrichmentResult retrieval = longTermMemoryService.enrichWithTrace(
+                    roomId, callerUid, triggerMsg.getContent());
+            userMessage = retrieval.getEnrichedMessage();
+            String retrievalSummary = "rewritten=" + retrieval.isRewritten()
+                    + ", vectorHits=" + retrieval.getVectorHits()
+                    + ", graphHits=" + retrieval.getGraphHits()
+                    + ", totalHits=" + retrieval.getTotalHits()
+                    + ", vectorDegraded=" + retrieval.isVectorDegraded()
+                    + ", graphDegraded=" + retrieval.isGraphDegraded();
+            traceService.finishStep(retrievalStepId, AgentStepStatus.SUCCEEDED, retrievalSummary, 1,
+                    (int) (System.currentTimeMillis() - retrievalStarted), null, null);
+        } catch (Exception e) {
+            traceService.finishStep(retrievalStepId, AgentStepStatus.FAILED, null, 1,
+                    (int) (System.currentTimeMillis() - retrievalStarted), "RETRIEVAL_FAILED", e.getMessage());
+            log.warn("AI记忆检索失败 roomId={} uid={}", roomId, callerUid, e);
+            // Retrieval is an enhancement, so degrade to the original user text instead of
+            // making the whole assistant unavailable.
+            userMessage = triggerMsg.getContent();
+        }
+
+        String modelStepId = traceService.beginStep(runId, AgentStepType.MODEL,
+                "STREAMING_MODEL_CALL", triggerMsg.getContent());
         TokenStream tokenStream;
         try {
-            String userMessage = longTermMemoryService.enrichUserMessage(roomId, callerUid, triggerMsg.getContent());
             tokenStream = agent.chat(memoryId, "[" + senderName + "]: " + userMessage);
         } catch (Exception e) {
             log.warn("发起AI流式对话失败 roomId={} uid={}", roomId, callerUid, e);
             sendReply(roomId, triggerMsg, "AI暂时遇到问题，请稍后重试~", false);
+            traceService.finishStep(modelStepId, AgentStepStatus.FAILED, null, 1,
+                    (int) (System.currentTimeMillis() - start), "MODEL_START_FAILED", e.getMessage());
+            traceService.fail(runId, null, (int) (System.currentTimeMillis() - start),
+                    "MODEL_START_FAILED", e.getMessage());
             logCall(callerUid, roomId, triggerMsg.getContent(), null, toolCallNames,
                     (int) (System.currentTimeMillis() - start), e.getMessage(), false, null);
+            cleanupStream(streamId, roomId, callerUid, guardToken);
             return;
         }
 
         activeStreams.put(streamId, callerUid);
         pushStreamChunk(roomId, streamId, callerUid, prefix);
 
-        tokenStream
+        try {
+            tokenStream
                 .onPartialResponse(chunk -> {
+                    if (firstTokenRecorded.compareAndSet(false, true)) {
+                        traceService.markFirstToken(runId, (int) (System.currentTimeMillis() - start));
+                    }
                     if (stoppedStreams.contains(streamId)) {
                         // 用户点了停止：用已生成的部分内容立即收尾，后续片段全部丢弃
                         if (finalized.compareAndSet(false, true)) {
                             String text = fullText.toString();
                             sendReply(roomId, triggerMsg, StringUtils.isBlank(text) ? "（已停止）" : text, false);
+                            traceService.finishStep(modelStepId, AgentStepStatus.CANCELLED, text, 1,
+                                    (int) (System.currentTimeMillis() - start), null, null);
+                            traceService.cancel(runId, text, (int) (System.currentTimeMillis() - start));
                             logCall(callerUid, roomId, triggerMsg.getContent(), text, toolCallNames,
                                     (int) (System.currentTimeMillis() - start), null, false, null);
                         }
@@ -300,10 +374,18 @@ public class AgentService {
                     if (finalized.compareAndSet(false, true)) {
                         String text = fullText.toString();
                         sendReply(roomId, triggerMsg, text, needsConfirmationFlag.get());
+                        traceService.finishStep(modelStepId, AgentStepStatus.SUCCEEDED, text, 1,
+                                (int) (System.currentTimeMillis() - start), null, null);
+                        if (needsConfirmationFlag.get()) {
+                            traceService.waitingConfirmation(runId, text,
+                                    (int) (System.currentTimeMillis() - start));
+                        } else {
+                            traceService.succeed(runId, text, (int) (System.currentTimeMillis() - start));
+                        }
                         logCall(callerUid, roomId, triggerMsg.getContent(), text, toolCallNames,
                                 (int) (System.currentTimeMillis() - start), null, needsConfirmationFlag.get(), null);
                     }
-                    cleanupStream(streamId);
+                    cleanupStream(streamId, roomId, callerUid, guardToken);
                 })
                 .onError(err -> {
                     if (finalized.compareAndSet(false, true)) {
@@ -316,12 +398,26 @@ public class AgentService {
                             // No token was emitted: retry the OpenAI-compatible primary endpoint and then the fallback provider.
                             sendReply(roomId, triggerMsg, fallbackReply(triggerMsg.getContent()), false);
                         }
+                        traceService.finishStep(modelStepId, AgentStepStatus.FAILED, text, 1,
+                                (int) (System.currentTimeMillis() - start), "MODEL_STREAM_FAILED", err.getMessage());
+                        traceService.fail(runId, text, (int) (System.currentTimeMillis() - start),
+                                "MODEL_STREAM_FAILED", err.getMessage());
                         logCall(callerUid, roomId, triggerMsg.getContent(), text, toolCallNames,
                                 (int) (System.currentTimeMillis() - start), err.getMessage(), needsConfirmationFlag.get(), null);
                     }
-                    cleanupStream(streamId);
+                    cleanupStream(streamId, roomId, callerUid, guardToken);
                 })
                 .start();
+        } catch (Exception e) {
+            if (finalized.compareAndSet(false, true)) {
+                traceService.finishStep(modelStepId, AgentStepStatus.FAILED, null, 1,
+                        (int) (System.currentTimeMillis() - start), "MODEL_STREAM_START_FAILED", e.getMessage());
+                traceService.fail(runId, null, (int) (System.currentTimeMillis() - start),
+                        "MODEL_STREAM_START_FAILED", e.getMessage());
+                sendReply(roomId, triggerMsg, "AI暂时遇到问题，请稍后重试~", false);
+            }
+            cleanupStream(streamId, roomId, callerUid, guardToken);
+        }
     }
 
     private void pushStreamChunk(Long roomId, String streamId, Long callerUid, String chunk) {
@@ -364,9 +460,11 @@ public class AgentService {
         }
         if (CANCEL_WORDS.contains(text)) {
             pendingConfirmStore.clear(roomId, uid);
+            traceConfirmationCancelled(pending);
             return new ConfirmResult(false, "已取消。");
         }
         pendingConfirmStore.clear(roomId, uid);
+        traceConfirmationCancelled(pending);
         return null;
     }
 
@@ -380,7 +478,13 @@ public class AgentService {
             return "没有待确认的操作了";
         }
         pendingConfirmStore.clear(roomId, uid);
-        String resultText = confirmed ? executeConfirmedTool(pending, roomId, uid) : "已取消。";
+        String resultText;
+        if (confirmed) {
+            resultText = executeConfirmedTool(pending, roomId, uid);
+        } else {
+            traceConfirmationCancelled(pending);
+            resultText = "已取消。";
+        }
         // 这条回执也走统一的发送入口，方便前端识别（AI机器人发出、走正常WS推送）
         Message pseudoTrigger = new Message();
         pseudoTrigger.setRoomId(roomId);
@@ -404,16 +508,32 @@ public class AgentService {
         }
         args.put("_callerUid", uid);
         args.put("_roomId", roomId);
-        try {
-            return tool.execute(args);
-        } catch (Exception e) {
-            log.warn("确认后执行工具 {} 失败", pending.getToolName(), e);
-            return "执行失败: " + e.getMessage();
+        long started = System.currentTimeMillis();
+        String stepId = traceService.beginStep(pending.getRunId(), AgentStepType.CONFIRMATION,
+                "CONFIRMED:" + pending.getToolName(), pending.getArgsJson());
+        AgentToolExecutionService.Result result = toolExecutionService.executeLocal(tool, args);
+        traceService.finishStep(stepId,
+                result.isSuccess() ? AgentStepStatus.SUCCEEDED : AgentStepStatus.FAILED,
+                result.getOutput(), result.getAttempts(), result.getLatencyMs(),
+                result.getErrorCode(), result.getErrorMessage());
+        if (result.isSuccess()) {
+            traceService.succeed(pending.getRunId(), result.getOutput(), (int) (System.currentTimeMillis() - started));
+        } else {
+            traceService.fail(pending.getRunId(), null, (int) (System.currentTimeMillis() - started),
+                    result.getErrorCode(), result.getErrorMessage());
         }
+        return result.userText();
     }
 
-    private String memoryId(Long roomId, Long uid) {
-        return roomId + ":" + uid;
+    private void traceConfirmationCancelled(PendingConfirmation pending) {
+        String stepId = traceService.beginStep(pending.getRunId(), AgentStepType.CONFIRMATION,
+                "USER_CANCELLED", pending.getSummary());
+        traceService.finishStep(stepId, AgentStepStatus.CANCELLED, "用户取消", 1, 0, null, null);
+        traceService.cancel(pending.getRunId(), "已取消", 0);
+    }
+
+    private String memoryId(Long roomId, Long uid, String runId) {
+        return roomId + ":" + uid + ":" + runId;
     }
 
     private String rateLimitKey(Long uid) {
@@ -423,7 +543,7 @@ public class AgentService {
     /** [AI-CONTEXT] systemMessageProvider 收到的是 memoryId（"roomId:uid"），从中解析出 roomId 拼接会话成员映射表 */
     private String buildSystemMessage(Object memoryIdObj) {
         String memoryId = String.valueOf(memoryIdObj);
-        String[] parts = memoryId.split(":", 2);
+        String[] parts = memoryId.split(":", 3);
         StringBuilder sb = new StringBuilder(basePrompt());
         if (parts.length == 2) {
             try {
