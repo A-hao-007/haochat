@@ -29,7 +29,7 @@
 - MySQL 8.0
 - Redis
 - MinIO
-- RocketMQ (可选)
+- RocketMQ
 
 ### 2. 配置文件
 复制配置模板并填入真实值：
